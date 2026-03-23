@@ -73,19 +73,22 @@ class XuiApiService {
   /** 登录 3X-UI 获取 session cookie */
   async login(): Promise<boolean> {
     try {
-      const res = await this.api.post('/login', {
-        username: this.xuiUser,
-        password: this.xuiPass,
-      });
+      // 3X-UI 只接受 form-urlencoded 格式登录
+      const res = await this.api.post('/login',
+        `username=${encodeURIComponent(this.xuiUser)}&password=${encodeURIComponent(this.xuiPass)}`,
+        { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+      );
 
       if (res.data?.success) {
         const setCookie = res.headers['set-cookie'];
         if (setCookie) {
           this.cookie = setCookie.map((c: string) => c.split(';')[0]).join('; ');
+          logger.debug(`3X-UI cookie 获取成功 (${this.cookie.length} 字符)`);
+        } else {
+          logger.warn('3X-UI 登录成功但未返回 cookie');
         }
         this.loginTime = Date.now();
         this.connected = true;
-        logger.debug('3X-UI 登录成功');
         return true;
       }
 
@@ -109,18 +112,27 @@ class XuiApiService {
       this.api.request({
         method, url: path, data,
         headers: { Cookie: this.cookie },
+        maxRedirects: 0,
       });
 
     try {
       const res = await doRequest();
       return res.data;
     } catch (err: any) {
-      if (err.response?.status === 401 || err.response?.status === 307) {
-        logger.debug('3X-UI session 过期，重新登录');
+      const status = err.response?.status;
+      // 302/307 重定向 = session 过期; 401 = 未授权
+      if (status === 302 || status === 307 || status === 401) {
+        logger.debug(`3X-UI session 过期 (${status})，重新登录`);
         await this.login();
-        const res = await doRequest();
-        return res.data;
+        try {
+          const res = await doRequest();
+          return res.data;
+        } catch (retryErr: any) {
+          logger.error(`3X-UI 重试失败: ${method} ${path} → ${retryErr.response?.status || retryErr.message}`);
+          throw retryErr;
+        }
       }
+      logger.error(`3X-UI 请求失败: ${method} ${path} → ${status || err.code || err.message}`);
       throw err;
     }
   }

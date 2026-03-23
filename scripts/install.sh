@@ -19,7 +19,7 @@ PORT_RANGE_MIN=${PORT_RANGE_MIN:-0}
 PORT_RANGE_MAX=${PORT_RANGE_MAX:-0}
 INSTALL_DIR="/opt/unified-panel"
 DATA_DIR="${INSTALL_DIR}/data"
-GOST_VERSION="3.0.0-rc10"
+GOST_VERSION="3.0.0"
 NODE_VERSION="20"
 
 # ============ 镜像源 (国内加速) ============

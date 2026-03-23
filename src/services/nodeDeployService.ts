@@ -169,7 +169,7 @@ class NodeDeployService {
     if (opts.chains?.length) {
       for (const chain of opts.chains) {
         try {
-          await api.post('/api/config/chains', chain);
+          await api.post('/config/chains', chain);
           logger.info(`推送链 ${chain.name} → ${node.name}`);
         } catch (err: any) {
           const msg = `链 ${chain.name} 推送失败: ${err.message}`;
@@ -183,7 +183,7 @@ class NodeDeployService {
     if (opts.services?.length) {
       for (const svc of opts.services) {
         try {
-          await api.post('/api/config/services', svc);
+          await api.post('/config/services', svc);
           logger.info(`推送服务 ${svc.name} → ${node.name}`);
         } catch (err: any) {
           const msg = `服务 ${svc.name} 推送失败: ${err.message}`;
@@ -269,7 +269,7 @@ class NodeDeployService {
     if (!node) throw new Error('节点不存在');
 
     const gostUrl = `http://${node.host}:${node.gostApiPort || 18080}`;
-    const { data } = await axios.get(`${gostUrl}/api/config`, { timeout: 10000 });
+    const { data } = await axios.get(`${gostUrl}/config`, { timeout: 10000 });
     return data;
   }
 
@@ -284,13 +284,13 @@ class NodeDeployService {
     const api = axios.create({ baseURL: gostUrl, timeout: 10000 });
 
     // 先获取所有再逐个删除
-    const config = (await api.get('/api/config')).data;
+    const config = (await api.get('/config')).data;
 
     for (const svc of (config.services || [])) {
-      try { await api.delete(`/api/config/services/${svc.name}`); } catch {}
+      try { await api.delete(`/config/services/${svc.name}`); } catch {}
     }
     for (const chain of (config.chains || [])) {
-      try { await api.delete(`/api/config/chains/${chain.name}`); } catch {}
+      try { await api.delete(`/config/chains/${chain.name}`); } catch {}
     }
 
     logger.info(`已清空节点 ${node.name} 的 GOST 配置`);

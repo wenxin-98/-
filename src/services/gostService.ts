@@ -140,7 +140,7 @@ class GostApiService {
 
   async checkConnection(): Promise<boolean> {
     try {
-      await this.api.get('/api/config');
+      await this.api.get('/config');
       this.connected = true;
       return true;
     } catch {
@@ -153,7 +153,7 @@ class GostApiService {
 
   /** 获取完整 GOST 配置 */
   async getConfig(): Promise<any> {
-    const { data } = await this.api.get('/api/config');
+    const { data } = await this.api.get('/config');
     return data;
   }
 
@@ -163,7 +163,7 @@ class GostApiService {
 
   /** 列出所有服务 */
   async listServices(): Promise<GostService[]> {
-    const { data } = await this.api.get('/api/config/services');
+    const { data } = await this.api.get('/config/services');
     return data || [];
   }
 
@@ -191,7 +191,7 @@ class GostApiService {
       },
     };
 
-    await this.api.post('/api/config/services', service);
+    await this.api.post('/config/services', service);
     logger.info(`创建端口转发: ${opts.name} ${protocol}://${bindAddr}:${opts.listenPort} → ${opts.targetHost}:${opts.targetPort}`);
   }
 
@@ -222,7 +222,7 @@ class GostApiService {
       },
     };
 
-    await this.api.post('/api/config/services', service);
+    await this.api.post('/config/services', service);
     logger.info(`创建隧道服务端: ${opts.name} ${transport}://:${opts.listenPort}`);
   }
 
@@ -278,7 +278,7 @@ class GostApiService {
       }],
     };
 
-    await this.api.post('/api/config/chains', chain);
+    await this.api.post('/config/chains', chain);
 
     // 2. 创建本地监听服务 (绑定到该链)
     const service: GostService = {
@@ -299,7 +299,7 @@ class GostApiService {
       },
     };
 
-    await this.api.post('/api/config/services', service);
+    await this.api.post('/config/services', service);
     logger.info(`创建隧道转发: ${opts.name} :${opts.listenPort} → ${transport}://${opts.targetHost}:${opts.targetPort}`);
 
     return { serviceName, chainName };
@@ -336,7 +336,7 @@ class GostApiService {
             nodes: [{ name: `${svcName}-t`, addr: `${opts.targetHost}:${targetStart + i}` }],
           },
         };
-        await this.api.post('/api/config/services', service);
+        await this.api.post('/config/services', service);
         createdNames.push(svcName);
       }
 
@@ -356,7 +356,7 @@ class GostApiService {
           nodes: [{ name: `${serviceName}-target`, addr: `${opts.targetHost}:${opts.targetPort}` }],
         },
       };
-      await this.api.post('/api/config/services', service);
+      await this.api.post('/config/services', service);
       logger.info(`创建反向转发: ${serviceName} ${proto}://:${opts.listenPort}`);
       return { serviceName };
     }
@@ -387,7 +387,7 @@ class GostApiService {
             },
             listener: { type: 'tcp' },
           };
-          await this.api.post('/api/config/services', service);
+          await this.api.post('/config/services', service);
           logger.info(`创建 SS 代理: ${serviceName} :${opts.listenPort}`);
           return { serviceName };
         }
@@ -404,7 +404,7 @@ class GostApiService {
         },
         listener: { type: listenerType },
       };
-      await this.api.post('/api/config/services', service);
+      await this.api.post('/config/services', service);
       logger.info(`创建 ${proxyType} 代理: ${serviceName} :${opts.listenPort}`);
       return { serviceName };
     }
@@ -422,13 +422,13 @@ class GostApiService {
 
   /** 删除服务 */
   async deleteService(name: string): Promise<void> {
-    await this.api.delete(`/api/config/services/${name}`);
+    await this.api.delete(`/config/services/${name}`);
     logger.info(`删除服务: ${name}`);
   }
 
   /** 更新服务 */
   async updateService(name: string, service: Partial<GostService>): Promise<void> {
-    await this.api.put(`/api/config/services/${name}`, service);
+    await this.api.put(`/config/services/${name}`, service);
     logger.info(`更新服务: ${name}`);
   }
 
@@ -438,7 +438,7 @@ class GostApiService {
 
   /** 列出所有转发链 */
   async listChains(): Promise<GostChain[]> {
-    const { data } = await this.api.get('/api/config/chains');
+    const { data } = await this.api.get('/config/chains');
     return data || [];
   }
 
@@ -465,14 +465,14 @@ class GostApiService {
       })),
     };
 
-    await this.api.post('/api/config/chains', chain);
+    await this.api.post('/config/chains', chain);
     logger.info(`创建转发链: ${chainName} (${opts.hops.length} 跳)`);
     return chainName;
   }
 
   /** 删除转发链 */
   async deleteChain(name: string): Promise<void> {
-    await this.api.delete(`/api/config/chains/${name}`);
+    await this.api.delete(`/config/chains/${name}`);
     logger.info(`删除转发链: ${name}`);
   }
 
@@ -508,7 +508,7 @@ class GostApiService {
   /** 列出所有限速器 */
   async listLimiters(): Promise<any[]> {
     try {
-      const { data } = await this.api.get('/api/config/limiters');
+      const { data } = await this.api.get('/config/limiters');
       return data || [];
     } catch { return []; }
   }
@@ -527,13 +527,13 @@ class GostApiService {
         period: l.period || '1s',
       })),
     };
-    await this.api.post('/api/config/limiters', limiter);
+    await this.api.post('/config/limiters', limiter);
     logger.info(`创建限速器: ${name} (${limits.length} 条规则)`);
   }
 
   /** 删除限速器 */
   async deleteLimiter(name: string): Promise<void> {
-    await this.api.delete(`/api/config/limiters/${name}`);
+    await this.api.delete(`/config/limiters/${name}`);
     logger.info(`删除限速器: ${name}`);
   }
 
@@ -544,7 +544,7 @@ class GostApiService {
   /** 列出所有分流规则 */
   async listBypasses(): Promise<any[]> {
     try {
-      const { data } = await this.api.get('/api/config/bypasses');
+      const { data } = await this.api.get('/config/bypasses');
       return data || [];
     } catch { return []; }
   }
@@ -556,13 +556,13 @@ class GostApiService {
       whitelist,
       matchers: matchers.map(m => ({ match: m })),
     };
-    await this.api.post('/api/config/bypasses', bypass);
+    await this.api.post('/config/bypasses', bypass);
     logger.info(`创建分流: ${name} (${matchers.length} 条, whitelist=${whitelist})`);
   }
 
   /** 删除分流规则 */
   async deleteBypass(name: string): Promise<void> {
-    await this.api.delete(`/api/config/bypasses/${name}`);
+    await this.api.delete(`/config/bypasses/${name}`);
     logger.info(`删除分流: ${name}`);
   }
 
@@ -573,14 +573,14 @@ class GostApiService {
   /** 列出准入控制 */
   async listAdmissions(): Promise<any[]> {
     try {
-      const { data } = await this.api.get('/api/config/admissions');
+      const { data } = await this.api.get('/config/admissions');
       return data || [];
     } catch { return []; }
   }
 
   /** 创建准入控制 */
   async createAdmission(name: string, matchers: string[], whitelist = false): Promise<void> {
-    await this.api.post('/api/config/admissions', {
+    await this.api.post('/config/admissions', {
       name, whitelist,
       matchers: matchers.map(m => ({ match: m })),
     });
@@ -589,7 +589,7 @@ class GostApiService {
 
   /** 删除准入控制 */
   async deleteAdmission(name: string): Promise<void> {
-    await this.api.delete(`/api/config/admissions/${name}`);
+    await this.api.delete(`/config/admissions/${name}`);
   }
 
   // ================================
@@ -599,7 +599,7 @@ class GostApiService {
   /** 列出 DNS 解析器 */
   async listResolvers(): Promise<any[]> {
     try {
-      const { data } = await this.api.get('/api/config/resolvers');
+      const { data } = await this.api.get('/config/resolvers');
       return data || [];
     } catch { return []; }
   }
@@ -609,7 +609,7 @@ class GostApiService {
     addr: string;   // "udp://8.8.8.8:53" "tls://1.1.1.1:853"
     prefer?: string; // "ipv4" "ipv6"
   }>): Promise<void> {
-    await this.api.post('/api/config/resolvers', {
+    await this.api.post('/config/resolvers', {
       name, nameservers,
     });
     logger.info(`创建 DNS 解析器: ${name}`);
@@ -617,7 +617,7 @@ class GostApiService {
 
   /** 删除 DNS 解析器 */
   async deleteResolver(name: string): Promise<void> {
-    await this.api.delete(`/api/config/resolvers/${name}`);
+    await this.api.delete(`/config/resolvers/${name}`);
   }
 
   // ======================================
@@ -661,7 +661,7 @@ class GostApiService {
       },
     };
 
-    await this.api.post('/api/config/services', service);
+    await this.api.post('/config/services', service);
     logger.info(`创建负载均衡: ${serviceName} :${opts.listenPort} → ${opts.targets.length} 目标 (${opts.strategy || 'round'})`);
     return serviceName;
   }
@@ -687,7 +687,7 @@ class GostApiService {
       },
     };
 
-    await this.api.put(`/api/config/services/${serviceName}`, updated);
+    await this.api.put(`/config/services/${serviceName}`, updated);
     logger.info(`更新负载均衡目标: ${serviceName} → ${targets.length} 目标`);
   }
 }

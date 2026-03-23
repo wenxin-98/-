@@ -59,9 +59,9 @@ class HealthMonitor {
         // 先尝试 IPv4，失败尝试 IPv6 loopback
         let res;
         try {
-          res = await axios.get(`http://127.0.0.1:${port}/api/config`, { timeout: 3000 });
+          res = await axios.get(`http://127.0.0.1:${port}/config`, { timeout: 3000 });
         } catch {
-          res = await axios.get(`http://[::1]:${port}/api/config`, { timeout: 3000 });
+          res = await axios.get(`http://[::1]:${port}/config`, { timeout: 3000 });
         }
         const serviceCount = res.data?.services?.length || 0;
         db.update(nodes).set({
@@ -90,7 +90,7 @@ class HealthMonitor {
     try {
       // 1. 检测 GOST API + 测量延迟
       const startTime = Date.now();
-      const res = await axios.get(`${gostUrl}/api/config`, { timeout: 8000 });
+      const res = await axios.get(`${gostUrl}/config`, { timeout: 8000 });
       const latencyMs = Date.now() - startTime;
 
       // 2. 采集 GOST 服务数量

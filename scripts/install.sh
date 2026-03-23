@@ -395,7 +395,7 @@ setup_gost_config() {
             -keyout "${DATA_DIR}/certs/server.key" \
             -out "${DATA_DIR}/certs/server.crt" \
             -days 3650 \
-            -subj "/C=US/ST=State/L=City/O=Panel/CN=$(curl -sf --connect-timeout 3 ip.sb 2>/dev/null || curl -sf --connect-timeout 3 ifconfig.me 2>/dev/null || echo localhost)" \
+            -subj "/C=US/ST=State/L=City/O=Panel/CN=$(curl -4sf --connect-timeout 3 ip.sb 2>/dev/null || curl -4sf --connect-timeout 3 ifconfig.me 2>/dev/null || echo localhost)" \
             >/dev/null 2>&1
         info "TLS 证书已生成"
     fi
@@ -526,7 +526,17 @@ deploy_panel() {
 
     # 生成 .env
     JWT_SECRET=$(openssl rand -hex 32)
-    PUBLIC_IP=$(curl -sf --connect-timeout 3 ip.sb 2>/dev/null || curl -sf --connect-timeout 3 ifconfig.me 2>/dev/null || curl -sf --connect-timeout 3 icanhazip.com 2>/dev/null || echo "127.0.0.1")
+    # 双栈 IP 检测: 优先 IPv4
+    PUBLIC_IPV4=$(curl -4sf --connect-timeout 3 ip.sb 2>/dev/null || curl -4sf --connect-timeout 3 ifconfig.me 2>/dev/null || curl -4sf --connect-timeout 3 icanhazip.com 2>/dev/null || echo "")
+    PUBLIC_IPV6=$(curl -6sf --connect-timeout 3 ip.sb 2>/dev/null || curl -6sf --connect-timeout 3 ifconfig.me 2>/dev/null || echo "")
+    # 优先用 IPv4 显示
+    if [ -n "$PUBLIC_IPV4" ]; then
+        PUBLIC_IP="$PUBLIC_IPV4"
+    elif [ -n "$PUBLIC_IPV6" ]; then
+        PUBLIC_IP="[$PUBLIC_IPV6]"
+    else
+        PUBLIC_IP="127.0.0.1"
+    fi
 
     cat > "${INSTALL_DIR}/.env" <<EOF
 # 面板配置 — 由安装脚本自动生成 $(date '+%Y-%m-%d %H:%M:%S')
@@ -601,7 +611,7 @@ setup_nginx() {
 
     step "配置 Nginx 反向代理"
 
-    PUBLIC_IP=$(curl -sf --connect-timeout 3 ip.sb 2>/dev/null || curl -sf --connect-timeout 3 ifconfig.me 2>/dev/null || echo "0.0.0.0")
+    PUBLIC_IP=$(curl -4sf --connect-timeout 3 ip.sb 2>/dev/null || curl -4sf --connect-timeout 3 ifconfig.me 2>/dev/null || curl -6sf --connect-timeout 3 ip.sb 2>/dev/null || echo "0.0.0.0")
 
     # NAT 模式检测: 如果 80 端口不可用，使用面板端口直接访问
     if [ "$PORT_RANGE_MIN" -gt 0 ] && [ "$NGINX_PORT" -eq 80 ]; then
@@ -882,19 +892,29 @@ CLIEOF
 
 # ============ 安装完成信息 ============
 print_result() {
-    PUBLIC_IP=$(curl -sf --connect-timeout 3 ip.sb 2>/dev/null || curl -sf --connect-timeout 3 ifconfig.me 2>/dev/null || curl -sf --connect-timeout 3 icanhazip.com 2>/dev/null || echo "YOUR_IP")
+    PUBLIC_IPV4=$(curl -4sf --connect-timeout 3 ip.sb 2>/dev/null || curl -4sf --connect-timeout 3 ifconfig.me 2>/dev/null || echo "")
+    PUBLIC_IPV6=$(curl -6sf --connect-timeout 3 ip.sb 2>/dev/null || curl -6sf --connect-timeout 3 ifconfig.me 2>/dev/null || echo "")
+    PUBLIC_IP="${PUBLIC_IPV4:-${PUBLIC_IPV6:-YOUR_IP}}"
 
     echo ""
     divider
     echo -e "${GREEN}${BOLD}  ✓ 安装完成！${NC}"
     divider
     echo ""
-    echo -e "  ${BOLD}面板地址:${NC}     http://${PUBLIC_IP}"
-    echo -e "  ${BOLD}面板端口:${NC}     ${PANEL_PORT} (Nginx 代理: 80)"
+    if [ -n "$PUBLIC_IPV4" ]; then
+        echo -e "  ${BOLD}面板地址:${NC}     http://${PUBLIC_IPV4}:${PANEL_PORT}"
+    fi
+    if [ -n "$PUBLIC_IPV6" ]; then
+        echo -e "  ${BOLD}面板 IPv6:${NC}    http://[${PUBLIC_IPV6}]:${PANEL_PORT}"
+    fi
+    if [ -z "$PUBLIC_IPV4" ] && [ -z "$PUBLIC_IPV6" ]; then
+        echo -e "  ${BOLD}面板地址:${NC}     http://YOUR_IP:${PANEL_PORT}"
+    fi
+    echo -e "  ${BOLD}面板端口:${NC}     ${PANEL_PORT}"
     echo -e "  ${BOLD}管理员:${NC}       admin / admin123"
     echo ""
     echo -e "  ${BOLD}GOST API:${NC}     http://127.0.0.1:${GOST_API_PORT}"
-    echo -e "  ${BOLD}3X-UI:${NC}        http://${PUBLIC_IP}:${XUI_PORT}"
+    echo -e "  ${BOLD}3X-UI:${NC}        http://${PUBLIC_IPV4:-$PUBLIC_IP}:${XUI_PORT}"
     echo -e "  ${BOLD}3X-UI 账号:${NC}   admin / admin"
     echo ""
     echo -e "  ${BOLD}管理命令:${NC}"

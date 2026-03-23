@@ -363,13 +363,13 @@ install_gost() {
     GOST_URL="${GITHUB_PROXY}${GOST_ORIG_URL}"
     info "下载 GOST ${GOST_VERSION} (${ARCH})..."
 
-    if ! wget -qO /tmp/gost.tar.gz "$GOST_URL" 2>/dev/null && \
-       ! curl -sfL "$GOST_URL" -o /tmp/gost.tar.gz 2>/dev/null; then
+    if ! wget -q --timeout=15 -O /tmp/gost.tar.gz "$GOST_URL" 2>/dev/null && \
+       ! curl -sfL --connect-timeout 10 --max-time 60 "$GOST_URL" -o /tmp/gost.tar.gz 2>/dev/null; then
         # 二次回退: 直接连 GitHub
         if [ -n "$GITHUB_PROXY" ]; then
             warn "镜像下载失败，尝试直连 GitHub..."
-            wget -qO /tmp/gost.tar.gz "$GOST_ORIG_URL" 2>/dev/null || \
-            curl -sfL "$GOST_ORIG_URL" -o /tmp/gost.tar.gz 2>/dev/null || \
+            wget -q --timeout=15 -O /tmp/gost.tar.gz "$GOST_ORIG_URL" 2>/dev/null || \
+            curl -sfL --connect-timeout 10 --max-time 60 "$GOST_ORIG_URL" -o /tmp/gost.tar.gz 2>/dev/null || \
             error "GOST 下载失败。请手动下载: $GOST_ORIG_URL 放到 /tmp/gost.tar.gz 后重新运行"
         else
             error "GOST 下载失败"

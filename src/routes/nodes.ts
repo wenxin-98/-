@@ -279,18 +279,25 @@ esac
 
 # 安装 GOST v3
 info "安装 GOST v3..."
-GOST_VER="3.0.0-rc10"
+GOST_VER="3.0.0"
 GOST_URL="https://github.com/go-gost/gost/releases/download/v\${GOST_VER}/gost_\${GOST_VER}_linux_\${ARCH}.tar.gz"
 
-# 尝试直连 GitHub
-if ! wget -qO /tmp/gost.tar.gz "\${GOST_URL}" 2>/dev/null && \\
-   ! curl -sfL "\${GOST_URL}" -o /tmp/gost.tar.gz 2>/dev/null; then
-    # 回退: 国内镜像
+# 尝试直连 GitHub (10 秒超时)
+GOST_OK=false
+if wget -q --timeout=10 -O /tmp/gost.tar.gz "\${GOST_URL}" 2>/dev/null || \\
+   curl -sfL --connect-timeout 10 --max-time 60 "\${GOST_URL}" -o /tmp/gost.tar.gz 2>/dev/null; then
+    GOST_OK=true
+fi
+
+# 回退: 国内镜像代理
+if [ "\${GOST_OK}" != "true" ]; then
     info "GitHub 不可达，尝试镜像..."
-    for PROXY in "https://ghp.ci/" "https://gh-proxy.com/" "https://mirror.ghproxy.com/"; do
-        if wget -qO /tmp/gost.tar.gz "\${PROXY}\${GOST_URL}" 2>/dev/null || \\
-           curl -sfL "\${PROXY}\${GOST_URL}" -o /tmp/gost.tar.gz 2>/dev/null; then
+    for PROXY in "https://ghp.ci/" "https://gh-proxy.com/" "https://mirror.ghproxy.com/" "https://gh.api.99988866.xyz/"; do
+        info "  尝试 \${PROXY}..."
+        if wget -q --timeout=15 -O /tmp/gost.tar.gz "\${PROXY}\${GOST_URL}" 2>/dev/null || \\
+           curl -sfL --connect-timeout 10 --max-time 120 "\${PROXY}\${GOST_URL}" -o /tmp/gost.tar.gz 2>/dev/null; then
             info "通过镜像下载成功"
+            GOST_OK=true
             break
         fi
     done

@@ -161,13 +161,13 @@ class XuiApiService {
 
   /** 获取所有入站 */
   async listInbounds(): Promise<XuiInbound[]> {
-    const res = await this.request('POST', '/panel/inbound/list');
+    const res = await this.request('GET', '/panel/api/inbounds/list');
     return res?.obj || [];
   }
 
   /** 获取单个入站 */
   async getInbound(id: number): Promise<XuiInbound | null> {
-    const res = await this.request('GET', `/panel/inbound/get/${id}`);
+    const res = await this.request('GET', `/panel/api/inbounds/get/${id}`);
     return res?.obj || null;
   }
 
@@ -189,14 +189,14 @@ class XuiApiService {
       }),
     };
 
-    const res = await this.request('POST', '/panel/inbound/add', payload);
+    const res = await this.request('POST', '/panel/api/inbounds/add', payload);
     logger.info(`创建 3X-UI 入站: ${opts.remark} (${opts.protocol}:${opts.port})`);
     return res;
   }
 
   /** 删除入站 */
   async deleteInbound(id: number): Promise<any> {
-    const res = await this.request('POST', `/panel/inbound/del/${id}`);
+    const res = await this.request('POST', `/panel/api/inbounds/del/${id}`);
     logger.info(`删除 3X-UI 入站: ID=${id}`);
     return res;
   }
@@ -216,14 +216,14 @@ class XuiApiService {
     if (opts.settings) payload.settings = JSON.stringify(opts.settings);
     if (opts.streamSettings) payload.streamSettings = JSON.stringify(opts.streamSettings);
 
-    const res = await this.request('POST', `/panel/inbound/update/${id}`, payload);
+    const res = await this.request('POST', `/panel/api/inbounds/update/${id}`, payload);
     logger.info(`更新 3X-UI 入站: ID=${id}`);
     return res;
   }
 
   /** 重置入站流量 */
   async resetInboundTraffic(id: number): Promise<any> {
-    return this.request('POST', `/panel/inbound/resetTraffic/${id}`);
+    return this.request('POST', `/panel/api/inbounds/resetTraffic/${id}`);
   }
 
   /** 启用/禁用入站 */
@@ -301,7 +301,7 @@ class XuiApiService {
       settings: JSON.stringify({ clients: [newClient] }),
     };
 
-    const res = await this.request('POST', `/panel/inbound/addClient`, payload);
+    const res = await this.request('POST', `/panel/api/inbounds/addClient`, payload);
     logger.info(`添加客户端: inbound=${inboundId} email=${newClient.email}`);
     return { ...res, client: newClient };
   }
@@ -337,21 +337,21 @@ class XuiApiService {
     };
 
     const clientId = target.id || target.password;
-    const res = await this.request('POST', `/panel/inbound/updateClient/${clientId}`, payload);
+    const res = await this.request('POST', `/panel/api/inbounds/updateClient/${clientId}`, payload);
     logger.info(`更新客户端: inbound=${inboundId} id=${clientId}`);
     return res;
   }
 
   /** 删除客户端 */
   async removeClient(inboundId: number, clientId: string): Promise<any> {
-    const res = await this.request('POST', `/panel/inbound/${inboundId}/delClient/${clientId}`);
+    const res = await this.request('POST', `/panel/api/inbounds/${inboundId}/delClient/${clientId}`);
     logger.info(`删除客户端: inbound=${inboundId} id=${clientId}`);
     return res;
   }
 
   /** 重置客户端流量 */
   async resetClientTraffic(inboundId: number, email: string): Promise<any> {
-    return this.request('POST', `/panel/inbound/${inboundId}/resetClientTraffic/${email}`);
+    return this.request('POST', `/panel/api/inbounds/${inboundId}/resetClientTraffic/${email}`);
   }
 
   // ===== 服务器状态 =====
@@ -379,7 +379,7 @@ class XuiApiService {
 
   /** 获取面板设置 */
   async getPanelSettings(): Promise<any> {
-    const res = await this.request('POST', '/panel/setting/all');
+    const res = await this.request('POST', '/panel/api/settings/all');
     return res?.obj || {};
   }
 

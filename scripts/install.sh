@@ -12,6 +12,7 @@ PANEL_PORT=${PANEL_PORT:-9527}
 GOST_API_PORT=${GOST_API_PORT:-18080}
 XUI_PORT=${XUI_PORT:-2053}
 NGINX_PORT=${NGINX_PORT:-80}
+SKIP_NGINX=${SKIP_NGINX:-false}
 # NAT 端口范围 (可选)
 PORT_RANGE_MIN=${PORT_RANGE_MIN:-0}
 PORT_RANGE_MAX=${PORT_RANGE_MAX:-0}
@@ -173,57 +174,28 @@ install_deps() {
             dpkg --configure -a --force-confdef --force-confold </dev/null 2>/dev/null || true
             info "清理完成"
 
-            # ===== 自动切换 apt 快速源 =====
-            info "检测最佳 apt 镜像源..."
-            if [ "$USE_CN_MIRROR" = "true" ] || curl -sf --connect-timeout 3 https://mirrors.aliyun.com >/dev/null 2>&1; then
-                info "切换到阿里云 apt 源..."
-                local CODENAME=$(lsb_release -cs 2>/dev/null || echo "noble")
-                cp /etc/apt/sources.list /etc/apt/sources.list.bak 2>/dev/null || true
-                # Ubuntu 24.04 用 DEB822 格式
-                if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then
-                    cp /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list.d/ubuntu.sources.bak
-                    sed -i 's|archive.ubuntu.com|mirrors.aliyun.com|g' /etc/apt/sources.list.d/ubuntu.sources
-                    sed -i 's|security.ubuntu.com|mirrors.aliyun.com|g' /etc/apt/sources.list.d/ubuntu.sources
-                    sed -i 's|ports.ubuntu.com|mirrors.aliyun.com|g' /etc/apt/sources.list.d/ubuntu.sources
-                else
-                    cat > /etc/apt/sources.list << APTEOF
+            # ===== 切换阿里云 apt 源 =====
+            info "切换 apt 源到阿里云..."
+            local CODENAME=$(lsb_release -cs 2>/dev/null || echo "noble")
+
+            # 无论什么格式，直接写新的 sources.list
+            # 先禁用 DEB822 格式源文件
+            if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then
+                mv /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list.d/ubuntu.sources.bak
+            fi
+
+            # 写入传统格式 (所有 Ubuntu 版本都兼容)
+            cat > /etc/apt/sources.list << APTEOF
 deb http://mirrors.aliyun.com/ubuntu/ ${CODENAME} main restricted universe multiverse
 deb http://mirrors.aliyun.com/ubuntu/ ${CODENAME}-updates main restricted universe multiverse
 deb http://mirrors.aliyun.com/ubuntu/ ${CODENAME}-security main restricted universe multiverse
+deb http://mirrors.aliyun.com/ubuntu/ ${CODENAME}-backports main restricted universe multiverse
 APTEOF
-                fi
-                info "已切换到阿里云源"
-            fi
+            info "源已写入: mirrors.aliyun.com / ${CODENAME}"
 
-            # ===== apt-get update =====
-            info "更新软件源 (请耐心等待)..."
-            # 后台运行 + 显示旋转动画
-            apt-get update -y \
-                -o Acquire::ForceIPv4=true \
-                -o Dpkg::Options::="--force-confdef" \
-                -o Dpkg::Options::="--force-confold" \
-                </dev/null > /tmp/apt-update.log 2>&1 &
-            local apt_pid=$!
-            local spin=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
-            local i=0
-            while kill -0 $apt_pid 2>/dev/null; do
-                printf "\r  ${spin[$((i % 10))]} apt-get update 运行中... ($(wc -l < /tmp/apt-update.log 2>/dev/null || echo 0) 行输出)"
-                i=$((i + 1))
-                sleep 0.5
-                # 120 秒超时
-                if [ $i -gt 240 ]; then
-                    kill -9 $apt_pid 2>/dev/null
-                    printf "\n"
-                    warn "apt-get update 超时 (120s)，继续安装..."
-                    break
-                fi
-            done
-            printf "\r                                                    \r"
-            wait $apt_pid 2>/dev/null
-            if [ -f /tmp/apt-update.log ]; then
-                local errors=$(grep -i "err\|fail" /tmp/apt-update.log | head -3)
-                [ -n "$errors" ] && warn "apt-get update 有警告: $errors"
-            fi
+            # ===== apt-get update (前台运行, 用户能看到进度) =====
+            info "更新软件源..."
+            apt-get update -y -o Acquire::ForceIPv4=true </dev/null || warn "apt-get update 有警告"
             info "软件源已更新 ✓"
 
             # ===== apt-get install =====
@@ -233,11 +205,15 @@ APTEOF
                 -o Dpkg::Options::="--force-confdef" \
                 -o Dpkg::Options::="--force-confold" \
                 curl wget unzip jq git sqlite3 \
-                nginx openssl ca-certificates \
-                lsof net-tools sshpass </dev/null || {
-                warn "部分包安装失败，重试..."
-                apt-get install -y -f </dev/null 2>/dev/null
-                apt-get install -y curl wget unzip jq git nginx openssl lsof </dev/null || error "依赖安装失败"
+                openssl ca-certificates lsof net-tools \
+                nginx sshpass \
+                </dev/null || {
+                warn "部分包失败，逐个安装..."
+                for pkg in curl wget unzip jq git sqlite3 openssl ca-certificates lsof net-tools; do
+                    apt-get install -y "$pkg" </dev/null 2>/dev/null
+                done
+                apt-get install -y nginx </dev/null 2>/dev/null || { warn "nginx 未安装"; SKIP_NGINX=true; }
+                apt-get install -y sshpass </dev/null 2>/dev/null || warn "sshpass 未安装"
             }
             info "系统依赖安装完成 ✓"
             ;;
@@ -595,6 +571,12 @@ EOF
 
 # ============ 配置 Nginx 反向代理 ============
 setup_nginx() {
+    # nginx 未安装则跳过
+    if [ "$SKIP_NGINX" = "true" ] || ! command -v nginx &>/dev/null; then
+        info "跳过 Nginx 配置 (面板直接监听 :${PANEL_PORT})"
+        return
+    fi
+
     step "配置 Nginx 反向代理"
 
     PUBLIC_IP=$(curl -sf --connect-timeout 3 ip.sb 2>/dev/null || curl -sf --connect-timeout 3 ifconfig.me 2>/dev/null || echo "0.0.0.0")

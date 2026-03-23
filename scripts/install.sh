@@ -173,10 +173,33 @@ install_deps() {
             dpkg --configure -a --force-confdef --force-confold </dev/null 2>/dev/null || true
             info "清理完成"
 
+            # ===== 自动切换 apt 快速源 =====
+            info "检测最佳 apt 镜像源..."
+            if [ "$USE_CN_MIRROR" = "true" ] || curl -sf --connect-timeout 3 https://mirrors.aliyun.com >/dev/null 2>&1; then
+                info "切换到阿里云 apt 源..."
+                local CODENAME=$(lsb_release -cs 2>/dev/null || echo "noble")
+                cp /etc/apt/sources.list /etc/apt/sources.list.bak 2>/dev/null || true
+                # Ubuntu 24.04 用 DEB822 格式
+                if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then
+                    cp /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list.d/ubuntu.sources.bak
+                    sed -i 's|archive.ubuntu.com|mirrors.aliyun.com|g' /etc/apt/sources.list.d/ubuntu.sources
+                    sed -i 's|security.ubuntu.com|mirrors.aliyun.com|g' /etc/apt/sources.list.d/ubuntu.sources
+                    sed -i 's|ports.ubuntu.com|mirrors.aliyun.com|g' /etc/apt/sources.list.d/ubuntu.sources
+                else
+                    cat > /etc/apt/sources.list << APTEOF
+deb http://mirrors.aliyun.com/ubuntu/ ${CODENAME} main restricted universe multiverse
+deb http://mirrors.aliyun.com/ubuntu/ ${CODENAME}-updates main restricted universe multiverse
+deb http://mirrors.aliyun.com/ubuntu/ ${CODENAME}-security main restricted universe multiverse
+APTEOF
+                fi
+                info "已切换到阿里云源"
+            fi
+
             # ===== apt-get update =====
             info "更新软件源 (请耐心等待)..."
             # 后台运行 + 显示旋转动画
             apt-get update -y \
+                -o Acquire::ForceIPv4=true \
                 -o Dpkg::Options::="--force-confdef" \
                 -o Dpkg::Options::="--force-confold" \
                 </dev/null > /tmp/apt-update.log 2>&1 &
@@ -206,6 +229,7 @@ install_deps() {
             # ===== apt-get install =====
             info "安装依赖包..."
             apt-get install -y \
+                -o Acquire::ForceIPv4=true \
                 -o Dpkg::Options::="--force-confdef" \
                 -o Dpkg::Options::="--force-confold" \
                 curl wget unzip jq git sqlite3 \

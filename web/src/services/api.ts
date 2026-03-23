@@ -154,10 +154,10 @@ class ApiClient {
     return this.http.get(`/nodes/${id}/install-script`, { responseType: 'text' }) as Promise<any>;
   }
   deployNode(id: number, data: any) {
-    return this.http.post(`/nodes/${id}/deploy`, data) as Promise<any>;
+    return this.http.post(`/nodes/${id}/deploy`, data, { timeout: 600000 }) as Promise<any>;  // 10 分钟
   }
   syncNodeConfig(id: number) {
-    return this.http.post(`/nodes/${id}/sync`) as Promise<any>;
+    return this.http.post(`/nodes/${id}/sync`, {}, { timeout: 120000 }) as Promise<any>;  // 2 分钟
   }
   getNodeRemoteConfig(id: number) {
     return this.http.get(`/nodes/${id}/remote-config`) as Promise<any>;

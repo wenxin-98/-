@@ -508,20 +508,42 @@ deploy_panel() {
         git pull 2>/dev/null || true
     else
         info "从 GitHub 拉取面板源码..."
-        rm -rf "${INSTALL_DIR}" 2>/dev/null
-        git clone "$PANEL_REPO" "${INSTALL_DIR}" || {
+        # 先 clone 到临时目录，避免删除已有的 data/ 目录
+        rm -rf /tmp/unified-panel-src 2>/dev/null
+        git clone "$PANEL_REPO" /tmp/unified-panel-src || {
             warn "git clone 失败，尝试用 wget 下载..."
-            mkdir -p "${INSTALL_DIR}"
+            mkdir -p /tmp/unified-panel-src
             wget -qO /tmp/panel.tar.gz "https://github.com/wenxin-98/-/archive/refs/heads/main.tar.gz" || error "面板下载失败"
             tar -xzf /tmp/panel.tar.gz -C /tmp/
-            cp -r /tmp/---main/* "${INSTALL_DIR}/"
+            cp -r /tmp/---main/* /tmp/unified-panel-src/
             rm -rf /tmp/panel.tar.gz /tmp/---main
         }
+        # 保留 data/ 和 .env，复制源码文件
+        mkdir -p "${INSTALL_DIR}"
+        rsync -a --exclude='data' --exclude='.env' --exclude='node_modules' \
+            /tmp/unified-panel-src/ "${INSTALL_DIR}/" 2>/dev/null || \
+            cp -r /tmp/unified-panel-src/* "${INSTALL_DIR}/"
+        rm -rf /tmp/unified-panel-src
         cd "${INSTALL_DIR}"
     fi
 
     if [ ! -f "${INSTALL_DIR}/package.json" ]; then
         error "面板源码不完整 (缺少 package.json)"
+    fi
+
+    # 确保 GOST 配置目录存在 (git clone 可能覆盖)
+    if [ ! -f "${DATA_DIR}/gost/config.yaml" ]; then
+        mkdir -p "${DATA_DIR}/gost"
+        cat > "${DATA_DIR}/gost/config.yaml" << GOSTEOF
+api:
+  addr: "127.0.0.1:${GOST_API_PORT}"
+  accesslog: true
+
+services: []
+chains: []
+GOSTEOF
+        systemctl restart gost 2>/dev/null || true
+        info "GOST 配置已重建"
     fi
 
     # 生成 .env

@@ -163,8 +163,8 @@ class GostApiService {
 
   /** 列出所有服务 */
   async listServices(): Promise<GostService[]> {
-    const { data } = await this.api.get('/config/services');
-    return data || [];
+    const { data } = await this.api.get('/config');
+    return data?.services || [];
   }
 
   /** 创建端口转发 */
@@ -438,8 +438,8 @@ class GostApiService {
 
   /** 列出所有转发链 */
   async listChains(): Promise<GostChain[]> {
-    const { data } = await this.api.get('/config/chains');
-    return data || [];
+    const { data } = await this.api.get('/config');
+    return data?.chains || [];
   }
 
   /** 创建多跳转发链 */
@@ -508,8 +508,8 @@ class GostApiService {
   /** 列出所有限速器 */
   async listLimiters(): Promise<any[]> {
     try {
-      const { data } = await this.api.get('/config/limiters');
-      return data || [];
+      const { data } = await this.api.get('/config');
+      return data?.limiters || [];
     } catch { return []; }
   }
 
@@ -544,8 +544,8 @@ class GostApiService {
   /** 列出所有分流规则 */
   async listBypasses(): Promise<any[]> {
     try {
-      const { data } = await this.api.get('/config/bypasses');
-      return data || [];
+      const { data } = await this.api.get('/config');
+      return data?.bypasses || [];
     } catch { return []; }
   }
 
@@ -573,8 +573,8 @@ class GostApiService {
   /** 列出准入控制 */
   async listAdmissions(): Promise<any[]> {
     try {
-      const { data } = await this.api.get('/config/admissions');
-      return data || [];
+      const { data } = await this.api.get('/config');
+      return data?.admissions || [];
     } catch { return []; }
   }
 
@@ -599,8 +599,8 @@ class GostApiService {
   /** 列出 DNS 解析器 */
   async listResolvers(): Promise<any[]> {
     try {
-      const { data } = await this.api.get('/config/resolvers');
-      return data || [];
+      const { data } = await this.api.get('/config');
+      return data?.resolvers || [];
     } catch { return []; }
   }
 

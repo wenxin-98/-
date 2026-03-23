@@ -5,7 +5,7 @@
 #  支持: 国内/海外自动切换镜像源
 # ============================================================
 
-set -e
+# 不使用 set -e — 改用显式错误处理 (避免 apt 锁等导致静默退出)
 
 # ============ 可配置参数 ============
 PANEL_PORT=${PANEL_PORT:-9527}
@@ -158,27 +158,40 @@ install_deps() {
         ubuntu|debian)
             export DEBIAN_FRONTEND=noninteractive
 
-            # Ubuntu 24.04 后台 unattended-upgrades 会占 apt 锁
-            if pgrep -x unattended-upgr >/dev/null 2>&1 || fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; then
-                warn "检测到 apt 锁被占用，正在等待释放..."
-                systemctl stop unattended-upgrades 2>/dev/null || true
-                systemctl disable unattended-upgrades 2>/dev/null || true
-                killall -9 unattended-upgr 2>/dev/null || true
-                killall -9 apt-get 2>/dev/null || true
-                killall -9 dpkg 2>/dev/null || true
-                sleep 2
-                # 修复可能的中断状态
-                dpkg --configure -a 2>/dev/null || true
-                rm -f /var/lib/dpkg/lock-frontend /var/lib/apt/lists/lock 2>/dev/null || true
-                info "apt 锁已释放"
-            fi
+            # ===== 自动清理 apt 锁 (Ubuntu 24.04 必须) =====
+            info "清理 apt 锁..."
+            systemctl stop unattended-upgrades 2>/dev/null || true
+            systemctl disable unattended-upgrades 2>/dev/null || true
+            systemctl stop apt-daily.timer 2>/dev/null || true
+            systemctl stop apt-daily-upgrade.timer 2>/dev/null || true
+            killall -9 unattended-upgr apt-get apt dpkg 2>/dev/null || true
+            sleep 1
 
-            info "更新软件源..."
-            apt-get update -y -qq 2>&1 | tail -3
-            info "安装依赖包..."
+            # 等待锁释放 (最多 60 秒)
+            local wait_count=0
+            while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || fuser /var/lib/apt/lists/lock >/dev/null 2>&1; do
+                if [ $wait_count -eq 0 ]; then
+                    warn "apt 被其他进程锁定，等待释放..."
+                fi
+                wait_count=$((wait_count + 1))
+                if [ $wait_count -gt 30 ]; then
+                    warn "强制清除 apt 锁..."
+                    rm -f /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock \
+                          /var/lib/apt/lists/lock /var/cache/apt/archives/lock 2>/dev/null
+                    dpkg --configure -a 2>/dev/null || true
+                    break
+                fi
+                sleep 2
+                echo -n "."
+            done
+            [ $wait_count -gt 0 ] && echo "" && info "apt 锁已释放"
+
+            info "[1/3] apt-get update ..."
+            apt-get update -y 2>&1 | tail -3
+            info "[2/3] 安装依赖包..."
             apt-get install -y curl wget unzip jq git sqlite3 \
                 nginx openssl ca-certificates lsof net-tools sshpass 2>&1 | tail -5
-            info "APT 依赖安装完成"
+            info "[3/3] APT 依赖安装完成 ✓"
             ;;
         centos|rhel|rocky|almalinux|fedora)
             info "安装依赖包..."
@@ -494,21 +507,23 @@ EOF
         pnpm install --prod 2>&1 | tail -3
         cd web && pnpm install 2>&1 | tail -3 && cd ..
     else
-        npm install --production 2>&1 | tail -3
-        cd web && npm install 2>&1 | tail -3 && cd ..
+        npm install --production 2>&1 | tail -5 || error "npm install 失败"
+        cd web && npm install 2>&1 | tail -5 || error "前端 npm install 失败"
+        cd ..
     fi
 
     # 构建后端
     info "编译后端 TypeScript..."
     if command -v pnpm &>/dev/null; then
-        pnpm build 2>&1 | tail -3
+        pnpm build 2>&1 | tail -5 || error "后端编译失败"
     else
-        npx tsup src/index.ts --format esm --target node20 --clean 2>&1 | tail -3
+        npx tsup src/index.ts --format esm --target node20 --clean 2>&1 | tail -5 || error "后端编译失败"
     fi
 
     # 构建前端
     info "构建前端..."
-    cd web && npx vite build 2>&1 | tail -3 && cd ..
+    cd web && npx vite build 2>&1 | tail -5 || error "前端编译失败"
+        cd ..
 
     # PM2 启动
     pm2 delete unified-panel 2>/dev/null || true
@@ -897,7 +912,7 @@ main() {
     echo "  ╔══════════════════════════════════════╗"
     echo "  ║     统一转发管理面板 安装程序         ║"
     echo "  ║     GOST + 3X-UI + Web Panel         ║"
-    echo "  ║     v1.0.0                            ║"
+    echo "  ║     v1.9.0                            ║"
     echo "  ╚══════════════════════════════════════╝"
     echo -e "${NC}"
 

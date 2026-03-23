@@ -157,41 +157,46 @@ install_deps() {
     case "$OS" in
         ubuntu|debian)
             export DEBIAN_FRONTEND=noninteractive
+            export NEEDRESTART_MODE=a
 
-            # ===== 自动清理 apt 锁 (Ubuntu 24.04 必须) =====
-            info "清理 apt 锁..."
-            systemctl stop unattended-upgrades 2>/dev/null || true
-            systemctl disable unattended-upgrades 2>/dev/null || true
-            systemctl stop apt-daily.timer 2>/dev/null || true
-            systemctl stop apt-daily-upgrade.timer 2>/dev/null || true
-            killall -9 unattended-upgr apt-get apt dpkg 2>/dev/null || true
-            sleep 1
-
-            # 等待锁释放 (最多 60 秒)
-            local wait_count=0
-            while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || fuser /var/lib/apt/lists/lock >/dev/null 2>&1; do
-                if [ $wait_count -eq 0 ]; then
-                    warn "apt 被其他进程锁定，等待释放..."
-                fi
-                wait_count=$((wait_count + 1))
-                if [ $wait_count -gt 30 ]; then
-                    warn "强制清除 apt 锁..."
-                    rm -f /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock \
-                          /var/lib/apt/lists/lock /var/cache/apt/archives/lock 2>/dev/null
-                    dpkg --configure -a 2>/dev/null || true
-                    break
-                fi
-                sleep 2
-                echo -n "."
+            # ===== 暴力清理 (无条件执行) =====
+            info "清理系统锁和后台更新进程..."
+            # 停止所有自动更新服务
+            for svc in unattended-upgrades apt-daily apt-daily-upgrade apt-daily.timer apt-daily-upgrade.timer; do
+                systemctl stop "$svc" 2>/dev/null
+                systemctl disable "$svc" 2>/dev/null
+                systemctl mask "$svc" 2>/dev/null
             done
-            [ $wait_count -gt 0 ] && echo "" && info "apt 锁已释放"
+            # 杀掉所有占 apt/dpkg 的进程
+            for proc in unattended-upgr apt-get apt dpkg aptd; do
+                killall -9 "$proc" 2>/dev/null
+            done
+            sleep 2
+            # 删除所有锁文件
+            rm -f /var/lib/dpkg/lock \
+                  /var/lib/dpkg/lock-frontend \
+                  /var/lib/apt/lists/lock \
+                  /var/cache/apt/archives/lock \
+                  /var/cache/debconf/config.dat 2>/dev/null
+            # 修复可能中断的 dpkg
+            dpkg --configure -a 2>/dev/null
+            info "清理完成"
 
-            info "[1/3] apt-get update ..."
-            apt-get update -y -o DPkg::Lock::Timeout=30 || warn "apt-get update 有警告，继续安装..."
-            info "[2/3] 安装依赖包..."
-            apt-get install -y -o DPkg::Lock::Timeout=60 curl wget unzip jq git sqlite3 \
-                nginx openssl ca-certificates lsof net-tools sshpass || error "apt-get install 失败"
-            info "[3/3] APT 依赖安装完成 ✓"
+            # ===== apt-get update (带 60 秒超时) =====
+            info "[1/2] 更新软件源..."
+            timeout 120 apt-get update -y || {
+                warn "apt-get update 超时或失败，尝试继续..."
+            }
+
+            # ===== apt-get install =====
+            info "[2/2] 安装依赖包 (curl nginx git sqlite3 等)..."
+            timeout 300 apt-get install -y \
+                curl wget unzip jq git sqlite3 \
+                nginx openssl ca-certificates \
+                lsof net-tools sshpass || {
+                error "依赖安装失败，请手动运行: apt-get update && apt-get install -y curl wget unzip jq git sqlite3 nginx openssl ca-certificates lsof net-tools sshpass"
+            }
+            info "系统依赖安装完成 ✓"
             ;;
         centos|rhel|rocky|almalinux|fedora)
             info "安装依赖包..."

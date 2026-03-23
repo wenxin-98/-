@@ -13,6 +13,7 @@ GOST_API_PORT=${GOST_API_PORT:-18080}
 XUI_PORT=${XUI_PORT:-2053}
 NGINX_PORT=${NGINX_PORT:-80}
 SKIP_NGINX=${SKIP_NGINX:-false}
+PANEL_REPO="https://github.com/wenxin-98/-.git"
 # NAT 端口范围 (可选)
 PORT_RANGE_MIN=${PORT_RANGE_MIN:-0}
 PORT_RANGE_MAX=${PORT_RANGE_MAX:-0}
@@ -174,24 +175,43 @@ install_deps() {
             dpkg --configure -a --force-confdef --force-confold </dev/null 2>/dev/null || true
             info "清理完成"
 
-            # ===== 切换阿里云 apt 源 =====
+            # ===== 切换快速 apt 源 =====
             info "切换 apt 源到阿里云..."
-            local CODENAME=$(lsb_release -cs 2>/dev/null || echo "noble")
+            local CODENAME=$(lsb_release -cs 2>/dev/null || cat /etc/os-release 2>/dev/null | grep VERSION_CODENAME | cut -d= -f2 || echo "noble")
 
-            # 无论什么格式，直接写新的 sources.list
-            # 先禁用 DEB822 格式源文件
+            # 检测是 Debian 还是 Ubuntu (关键区别: 镜像路径不同)
+            local IS_DEBIAN=false
+            if grep -qi "debian" /etc/os-release 2>/dev/null; then
+                IS_DEBIAN=true
+            fi
+
+            # 禁用 DEB822 格式源文件 (Ubuntu 24.04)
             if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then
                 mv /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list.d/ubuntu.sources.bak
             fi
 
-            # 写入传统格式 (所有 Ubuntu 版本都兼容)
-            cat > /etc/apt/sources.list << APTEOF
+            # 备份原始源
+            [ -f /etc/apt/sources.list ] && cp /etc/apt/sources.list /etc/apt/sources.list.bak
+
+            if [ "$IS_DEBIAN" = "true" ]; then
+                # Debian: mirrors.aliyun.com/debian/
+                cat > /etc/apt/sources.list << APTEOF
+deb http://mirrors.aliyun.com/debian/ ${CODENAME} main contrib non-free non-free-firmware
+deb http://mirrors.aliyun.com/debian/ ${CODENAME}-updates main contrib non-free non-free-firmware
+deb http://mirrors.aliyun.com/debian-security/ ${CODENAME}-security main contrib non-free non-free-firmware
+deb http://mirrors.aliyun.com/debian/ ${CODENAME}-backports main contrib non-free non-free-firmware
+APTEOF
+                info "Debian ${CODENAME} → mirrors.aliyun.com/debian"
+            else
+                # Ubuntu: mirrors.aliyun.com/ubuntu/
+                cat > /etc/apt/sources.list << APTEOF
 deb http://mirrors.aliyun.com/ubuntu/ ${CODENAME} main restricted universe multiverse
 deb http://mirrors.aliyun.com/ubuntu/ ${CODENAME}-updates main restricted universe multiverse
 deb http://mirrors.aliyun.com/ubuntu/ ${CODENAME}-security main restricted universe multiverse
 deb http://mirrors.aliyun.com/ubuntu/ ${CODENAME}-backports main restricted universe multiverse
 APTEOF
-            info "源已写入: mirrors.aliyun.com / ${CODENAME}"
+                info "Ubuntu ${CODENAME} → mirrors.aliyun.com/ubuntu"
+            fi
 
             # ===== apt-get update (前台运行, 用户能看到进度) =====
             info "更新软件源..."
@@ -480,27 +500,26 @@ deploy_panel() {
     mkdir -p "${INSTALL_DIR}/logs"
 
     # 判断是否已有源码
-    if [ -d "${INSTALL_DIR}/src/package.json" ] || [ -f "${INSTALL_DIR}/package.json" ]; then
+    if [ -f "${INSTALL_DIR}/package.json" ]; then
         info "面板源码已存在，执行更新..."
         cd "${INSTALL_DIR}"
+        git pull 2>/dev/null || true
     else
-        info "初始化面板目录..."
-        # 如果是从 git 安装
-        if [ -n "$PANEL_REPO" ]; then
-            git clone "$PANEL_REPO" "${INSTALL_DIR}/src" 2>/dev/null
-            cd "${INSTALL_DIR}/src"
-        else
-            # 从本地 tar 包安装 (打包交付模式)
-            if [ -f /tmp/unified-panel.tar.gz ]; then
-                tar -xzf /tmp/unified-panel.tar.gz -C "${INSTALL_DIR}/"
-                cd "${INSTALL_DIR}"
-            else
-                warn "未找到面板源码，跳过面板部署"
-                warn "请手动将面板代码放到 ${INSTALL_DIR}/ 后执行:"
-                warn "  cd ${INSTALL_DIR} && pnpm install && pnpm build"
-                return
-            fi
-        fi
+        info "从 GitHub 拉取面板源码..."
+        rm -rf "${INSTALL_DIR}" 2>/dev/null
+        git clone "$PANEL_REPO" "${INSTALL_DIR}" || {
+            warn "git clone 失败，尝试用 wget 下载..."
+            mkdir -p "${INSTALL_DIR}"
+            wget -qO /tmp/panel.tar.gz "https://github.com/wenxin-98/-/archive/refs/heads/main.tar.gz" || error "面板下载失败"
+            tar -xzf /tmp/panel.tar.gz -C /tmp/
+            cp -r /tmp/---main/* "${INSTALL_DIR}/"
+            rm -rf /tmp/panel.tar.gz /tmp/---main
+        }
+        cd "${INSTALL_DIR}"
+    fi
+
+    if [ ! -f "${INSTALL_DIR}/package.json" ]; then
+        error "面板源码不完整 (缺少 package.json)"
     fi
 
     # 生成 .env

@@ -547,10 +547,10 @@ PORT_RANGE_MAX=${PORT_RANGE_MAX}
 EOF
 
     # 安装依赖 (需要 devDependencies 来编译)
+    # 关键: 临时设 NODE_ENV=development, 否则 pnpm 会跳过 devDependencies
+    export NODE_ENV=development
     info "安装 Node.js 依赖..."
     if command -v pnpm &>/dev/null; then
-        # 允许 native 模块编译 (better-sqlite3, esbuild)
-        pnpm config set ignore-scripts false 2>/dev/null || true
         pnpm install || error "pnpm install 失败"
         cd web && pnpm install && cd ..
     else
@@ -567,6 +567,9 @@ EOF
     info "构建前端..."
     cd web && npx vite build || error "前端编译失败"
     cd ..
+
+    # 构建完成后恢复 production
+    export NODE_ENV=production
 
     # PM2 启动
     pm2 delete unified-panel 2>/dev/null || true
@@ -831,9 +834,12 @@ case "$1" in
         echo "更新面板..."
         cd ${INSTALL_DIR}
         git pull 2>/dev/null || echo "非 git 目录，跳过拉取"
+        export NODE_ENV=development
         pnpm install 2>/dev/null || npm install
         cd web && (pnpm install 2>/dev/null || npm install) && cd ..
         npx tsup src/index.ts --format esm --target node20 --clean --sourcemap
+        cd web && npx vite build && cd ..
+        export NODE_ENV=production
         cd web && npx vite build 2>/dev/null && cd ..
         pm2 restart unified-panel
         echo "✓ 更新完成"

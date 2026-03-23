@@ -157,20 +157,24 @@ install_deps() {
     case "$OS" in
         ubuntu|debian)
             export DEBIAN_FRONTEND=noninteractive
-            apt-get update -y -qq
+            info "更新软件源 (可能需要 1-2 分钟)..."
+            apt-get update -y -qq 2>&1 | tail -1
+            info "安装依赖包..."
             apt-get install -y -qq curl wget unzip jq git sqlite3 \
-                nginx openssl ca-certificates lsof net-tools >/dev/null 2>&1
+                nginx openssl ca-certificates lsof net-tools sshpass 2>&1 | grep -E "^Setting|^Processing|新安装|升级" | tail -5
             info "APT 依赖安装完成"
             ;;
         centos|rhel|rocky|almalinux|fedora)
+            info "安装依赖包..."
             yum install -y -q curl wget unzip jq git sqlite \
-                nginx openssl ca-certificates lsof net-tools >/dev/null 2>&1
+                nginx openssl ca-certificates lsof net-tools sshpass 2>&1 | tail -3
             info "YUM 依赖安装完成"
             ;;
         *)
             warn "未知系统 $OS，尝试 apt-get..."
-            apt-get update -y -qq && apt-get install -y -qq \
-                curl wget unzip jq git sqlite3 nginx openssl >/dev/null 2>&1
+            apt-get update -y -qq 2>&1 | tail -1
+            apt-get install -y -qq \
+                curl wget unzip jq git sqlite3 nginx openssl sshpass 2>&1 | tail -3
             ;;
     esac
 }
@@ -238,7 +242,8 @@ install_nodejs() {
 
     # 安装 pnpm
     setup_npm_registry
-    npm install -g pnpm >/dev/null 2>&1 || true
+    info "安装 pnpm..."
+    npm install -g pnpm 2>&1 | tail -1 || true
 
     info "Node.js $(node -v) 安装完成"
 }
@@ -258,8 +263,9 @@ install_pm2() {
     fi
 
     step "安装 PM2"
-    npm install -g pm2 >/dev/null 2>&1
-    pm2 startup >/dev/null 2>&1 || true
+    info "安装 PM2..."
+    npm install -g pm2 2>&1 | tail -1
+    pm2 startup 2>&1 | tail -1 || true
     info "PM2 $(pm2 -v) 安装完成"
 }
 
@@ -469,11 +475,11 @@ EOF
     # 安装依赖
     info "安装 Node.js 依赖..."
     if command -v pnpm &>/dev/null; then
-        pnpm install --prod 2>&1 | tail -1
-        cd web && pnpm install 2>&1 | tail -1 && cd ..
+        pnpm install --prod 2>&1 | tail -3
+        cd web && pnpm install 2>&1 | tail -3 && cd ..
     else
-        npm install --production 2>&1 | tail -1
-        cd web && npm install 2>&1 | tail -1 && cd ..
+        npm install --production 2>&1 | tail -3
+        cd web && npm install 2>&1 | tail -3 && cd ..
     fi
 
     # 构建后端

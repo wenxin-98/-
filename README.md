@@ -128,7 +128,7 @@ docker run -d \
   -v panel-data:/app/data \
   -e GOST_API=http://YOUR_GOST_IP:18080 \
   -e XUI_API=http://YOUR_XUI_IP:2053 \
-  ghcr.io/wenxin-98/-:latest
+  ghcr.io/wenxin-98/unified-panel:latest
 ```
 
 完整栈 (面板 + GOST + 3X-UI + Nginx):

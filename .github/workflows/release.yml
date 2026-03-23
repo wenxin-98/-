@@ -41,11 +41,18 @@ jobs:
           files: unified-panel-${{ github.ref_name }}.tar.gz
           generate_release_notes: true
 
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Docker push
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}:${{ github.ref_name }}
-            ghcr.io/${{ github.repository }}:latest
+            ghcr.io/wenxin-98/unified-panel:${{ github.ref_name }}
+            ghcr.io/wenxin-98/unified-panel:latest

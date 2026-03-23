@@ -18,7 +18,7 @@ services:
   panel:
     build: .
     # 或使用预构建镜像:
-    # image: ghcr.io/wenxin-98/-:latest
+    # image: ghcr.io/wenxin-98/unified-panel:latest
     container_name: unified-panel
     restart: unless-stopped
     ports:

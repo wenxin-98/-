@@ -79,13 +79,15 @@ class XuiApiService {
         { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
       );
 
+      logger.info(`3X-UI login 响应: success=${res.data?.success}, set-cookie=${res.headers['set-cookie']?.length || 0} 条`);
+
       if (res.data?.success) {
         const setCookie = res.headers['set-cookie'];
         if (setCookie) {
           this.cookie = setCookie.map((c: string) => c.split(';')[0]).join('; ');
-          logger.debug(`3X-UI cookie 获取成功 (${this.cookie.length} 字符)`);
+          logger.info(`3X-UI cookie 获取成功 (${this.cookie.length} 字符)`);
         } else {
-          logger.warn('3X-UI 登录成功但未返回 cookie');
+          logger.error('3X-UI 登录成功但未返回 cookie');
         }
         this.loginTime = Date.now();
         this.connected = true;
@@ -105,8 +107,11 @@ class XuiApiService {
   private async request<T = any>(method: string, path: string, data?: any): Promise<T> {
     // cookie 超过 30 分钟自动重新登录
     if (!this.cookie || Date.now() - this.loginTime > 30 * 60 * 1000) {
-      await this.login();
+      const ok = await this.login();
+      if (!ok) throw new Error('3X-UI 登录失败');
     }
+
+    logger.info(`3X-UI 请求: ${method} ${path} | cookie: ${this.cookie ? this.cookie.substring(0, 30) + '...' : '(空)'}`);
 
     const doRequest = () =>
       this.api.request({
@@ -120,6 +125,8 @@ class XuiApiService {
       return res.data;
     } catch (err: any) {
       const status = err.response?.status;
+      const respData = err.response?.data;
+      logger.error(`3X-UI 请求失败: ${method} ${path} → ${status || err.code || err.message} | resp: ${typeof respData === 'string' ? respData.substring(0, 100) : JSON.stringify(respData)?.substring(0, 100)}`);
       // 302/307 重定向 = session 过期; 401 = 未授权
       if (status === 302 || status === 307 || status === 401) {
         logger.debug(`3X-UI session 过期 (${status})，重新登录`);
@@ -132,7 +139,6 @@ class XuiApiService {
           throw retryErr;
         }
       }
-      logger.error(`3X-UI 请求失败: ${method} ${path} → ${status || err.code || err.message}`);
       throw err;
     }
   }
@@ -155,13 +161,13 @@ class XuiApiService {
 
   /** 获取所有入站 */
   async listInbounds(): Promise<XuiInbound[]> {
-    const res = await this.request('POST', '/panel/api/inbounds/list');
+    const res = await this.request('POST', '/panel/inbound/list');
     return res?.obj || [];
   }
 
   /** 获取单个入站 */
   async getInbound(id: number): Promise<XuiInbound | null> {
-    const res = await this.request('GET', `/panel/api/inbounds/get/${id}`);
+    const res = await this.request('GET', `/panel/inbound/get/${id}`);
     return res?.obj || null;
   }
 
@@ -183,14 +189,14 @@ class XuiApiService {
       }),
     };
 
-    const res = await this.request('POST', '/panel/api/inbounds/add', payload);
+    const res = await this.request('POST', '/panel/inbound/add', payload);
     logger.info(`创建 3X-UI 入站: ${opts.remark} (${opts.protocol}:${opts.port})`);
     return res;
   }
 
   /** 删除入站 */
   async deleteInbound(id: number): Promise<any> {
-    const res = await this.request('POST', `/panel/api/inbounds/del/${id}`);
+    const res = await this.request('POST', `/panel/inbound/del/${id}`);
     logger.info(`删除 3X-UI 入站: ID=${id}`);
     return res;
   }
@@ -210,14 +216,14 @@ class XuiApiService {
     if (opts.settings) payload.settings = JSON.stringify(opts.settings);
     if (opts.streamSettings) payload.streamSettings = JSON.stringify(opts.streamSettings);
 
-    const res = await this.request('POST', `/panel/api/inbounds/update/${id}`, payload);
+    const res = await this.request('POST', `/panel/inbound/update/${id}`, payload);
     logger.info(`更新 3X-UI 入站: ID=${id}`);
     return res;
   }
 
   /** 重置入站流量 */
   async resetInboundTraffic(id: number): Promise<any> {
-    return this.request('POST', `/panel/api/inbounds/resetTraffic/${id}`);
+    return this.request('POST', `/panel/inbound/resetTraffic/${id}`);
   }
 
   /** 启用/禁用入站 */
@@ -295,7 +301,7 @@ class XuiApiService {
       settings: JSON.stringify({ clients: [newClient] }),
     };
 
-    const res = await this.request('POST', `/panel/api/inbounds/addClient`, payload);
+    const res = await this.request('POST', `/panel/inbound/addClient`, payload);
     logger.info(`添加客户端: inbound=${inboundId} email=${newClient.email}`);
     return { ...res, client: newClient };
   }
@@ -331,21 +337,21 @@ class XuiApiService {
     };
 
     const clientId = target.id || target.password;
-    const res = await this.request('POST', `/panel/api/inbounds/updateClient/${clientId}`, payload);
+    const res = await this.request('POST', `/panel/inbound/updateClient/${clientId}`, payload);
     logger.info(`更新客户端: inbound=${inboundId} id=${clientId}`);
     return res;
   }
 
   /** 删除客户端 */
   async removeClient(inboundId: number, clientId: string): Promise<any> {
-    const res = await this.request('POST', `/panel/api/inbounds/${inboundId}/delClient/${clientId}`);
+    const res = await this.request('POST', `/panel/inbound/${inboundId}/delClient/${clientId}`);
     logger.info(`删除客户端: inbound=${inboundId} id=${clientId}`);
     return res;
   }
 
   /** 重置客户端流量 */
   async resetClientTraffic(inboundId: number, email: string): Promise<any> {
-    return this.request('POST', `/panel/api/inbounds/${inboundId}/resetClientTraffic/${email}`);
+    return this.request('POST', `/panel/inbound/${inboundId}/resetClientTraffic/${email}`);
   }
 
   // ===== 服务器状态 =====
@@ -373,7 +379,7 @@ class XuiApiService {
 
   /** 获取面板设置 */
   async getPanelSettings(): Promise<any> {
-    const res = await this.request('POST', '/panel/api/settings/all');
+    const res = await this.request('POST', '/panel/setting/all');
     return res?.obj || {};
   }
 

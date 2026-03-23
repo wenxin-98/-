@@ -97,7 +97,7 @@ function InstallScriptModal({ open, onClose, nodeId }: {
           <div style={{ marginBottom: 12, fontSize: 13, color: 'var(--text-dim)' }}>
             SSH 登录目标节点后，执行以下一键安装命令:
           </div>
-          <Code>{`curl -sL http://YOUR_PANEL_IP:9527/api/v1/nodes/${nodeId}/install-script | bash`}</Code>
+          <Code>{`curl -sL http://${window.location.hostname}:9527/api/v1/nodes/${nodeId}/install-script | bash`}</Code>
           <div style={{
             marginTop: 16, padding: 12, background: 'rgba(234,179,8,0.08)',
             borderRadius: 'var(--radius-sm)', fontSize: 12, color: 'var(--yellow)',

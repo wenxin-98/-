@@ -1,0 +1,33 @@
+name: 功能建议
+description: 提出新功能或改进建议
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: 功能描述
+      placeholder: 描述你希望增加的功能
+    validations:
+      required: true
+  - type: textarea
+    id: use_case
+    attributes:
+      label: 使用场景
+      placeholder: 这个功能解决什么问题？
+  - type: dropdown
+    id: module
+    attributes:
+      label: 相关模块
+      options:
+        - GOST 转发
+        - GOST 隧道
+        - 3X-UI / Xray
+        - BBR 调参
+        - 节点管理
+        - 订阅链接
+        - 证书管理
+        - 安全
+        - 前端 UI
+        - 安装脚本
+        - Docker
+        - 其他

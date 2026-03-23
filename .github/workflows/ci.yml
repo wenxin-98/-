@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main]
+
+jobs:
+  check:
+    name: TypeScript & Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install backend deps
+        run: npm ci
+
+      - name: Install frontend deps
+        run: cd web && npm ci
+
+      - name: TypeScript check (backend)
+        run: npx tsc --noEmit
+
+      - name: TypeScript check (frontend)
+        run: cd web && npx tsc --noEmit
+
+      - name: Build backend
+        run: npx tsup src/index.ts --format esm --target node20 --clean
+
+      - name: Build frontend
+        run: cd web && npx vite build
+
+      - name: Verify dist
+        run: |
+          test -f dist/index.js
+          test -f dist-web/index.html
+          echo "✓ Build artifacts verified"
+
+  docker:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    needs: check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:latest
+            ghcr.io/${{ github.repository }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

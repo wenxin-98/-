@@ -1,0 +1,105 @@
+## ============================================
+##  统一转发管理面板 — Docker Compose 全栈部署
+## ============================================
+##
+##  用法:
+##    docker compose up -d          # 启动
+##    docker compose logs -f panel  # 查看面板日志
+##    docker compose down           # 停止
+##
+##  首次启动后访问: http://YOUR_IP:9527
+##  默认账号: admin / admin123
+##
+##  NAT VPS 用法:
+##    PANEL_PORT=20000 NGINX_PORT=20000 PORT_RANGE_MIN=20000 PORT_RANGE_MAX=30000 docker compose up -d
+
+services:
+  # ===== 面板 =====
+  panel:
+    build: .
+    # 或使用预构建镜像:
+    # image: ghcr.io/YOUR_USER/unified-panel:latest
+    container_name: unified-panel
+    restart: unless-stopped
+    ports:
+      - "${PANEL_PORT:-9527}:${PANEL_PORT:-9527}"
+    volumes:
+      - panel-data:/app/data
+      - panel-logs:/app/logs
+      - ./scripts:/app/scripts:ro
+    environment:
+      - PORT=${PANEL_PORT:-9527}
+      - NODE_ENV=production
+      - DB_PATH=/app/data/panel.db
+      - GOST_API=http://gost:18080
+      - XUI_API=http://3x-ui:2053
+      - XUI_USER=admin
+      - XUI_PASS=admin
+      - ADMIN_USER=admin
+      - ADMIN_PASS=admin123
+      - PORT_RANGE_MIN=${PORT_RANGE_MIN:-0}
+      - PORT_RANGE_MAX=${PORT_RANGE_MAX:-0}
+      # BBR (容器内无法修改宿主机内核参数)
+      - BBR_AUTO_TUNE=false
+    depends_on:
+      gost:
+        condition: service_healthy
+    networks:
+      - panel-net
+
+  # ===== GOST v3 =====
+  gost:
+    image: gogost/gost:latest
+    container_name: gost
+    restart: unless-stopped
+    network_mode: host     # host 网络用于端口转发
+    volumes:
+      - gost-config:/etc/gost
+    command: -C /etc/gost/config.yaml
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:18080/api/config"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ===== 3X-UI =====
+  3x-ui:
+    image: ghcr.io/mhsanaei/3x-ui:latest
+    container_name: 3x-ui
+    restart: unless-stopped
+    network_mode: host     # host 网络用于 Xray 入站端口
+    volumes:
+      - xui-data:/etc/x-ui
+      - xui-certs:/root/cert
+    environment:
+      - XRAY_VMESS_AEAD_FORCED=false
+
+  # ===== Nginx 反向代理 (可选, NAT 模式可跳过) =====
+  nginx:
+    image: nginx:alpine
+    container_name: nginx-proxy
+    restart: unless-stopped
+    ports:
+      - "${NGINX_PORT:-80}:${NGINX_PORT:-80}"
+    volumes:
+      - ./docker/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - panel-data:/certs:ro
+    environment:
+      - NGINX_PORT=${NGINX_PORT:-80}
+      - PANEL_PORT=${PANEL_PORT:-9527}
+      - XUI_PORT=${XUI_PORT:-2053}
+    depends_on:
+      - panel
+    networks:
+      - panel-net
+
+volumes:
+  panel-data:
+  panel-logs:
+  gost-config:
+  xui-data:
+  xui-certs:
+
+networks:
+  panel-net:
+    driver: bridge

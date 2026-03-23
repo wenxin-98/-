@@ -1,0 +1,51 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  release:
+    name: Build & Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Build
+        run: |
+          npm ci
+          cd web && npm ci && cd ..
+          npx tsup src/index.ts --format esm --target node20 --clean
+          cd web && npx vite build && cd ..
+
+      - name: Package release
+        run: |
+          tar -czf unified-panel-${{ github.ref_name }}.tar.gz \
+            dist/ dist-web/ src/ web/src/ web/index.html \
+            web/package.json web/tsconfig.json web/vite.config.ts \
+            scripts/ package.json tsconfig.json tsup.config.ts \
+            ecosystem.config.cjs .env.example README.md LICENSE \
+            Dockerfile docker-compose.yml docker/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: unified-panel-${{ github.ref_name }}.tar.gz
+          generate_release_notes: true
+
+      - name: Docker push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+            ghcr.io/${{ github.repository }}:latest

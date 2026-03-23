@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+dist-web/
+*.tsbuildinfo
+
+# Runtime data
+data/
+logs/
+*.db
+*.db-wal
+*.db-shm
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Debug
+npm-debug.log*
+pnpm-debug.log*
+
+# Package manager locks (keep one)
+# package-lock.json
+# yarn.lock
+
+# Coverage
+coverage/
+.nyc_output/
+
+# Temp
+tmp/
+*.tmp

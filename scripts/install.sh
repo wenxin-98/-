@@ -158,43 +158,62 @@ install_deps() {
         ubuntu|debian)
             export DEBIAN_FRONTEND=noninteractive
             export NEEDRESTART_MODE=a
+            export NEEDRESTART_SUSPEND=1
 
-            # ===== 暴力清理 (无条件执行) =====
-            info "清理系统锁和后台更新进程..."
-            # 停止所有自动更新服务
-            for svc in unattended-upgrades apt-daily apt-daily-upgrade apt-daily.timer apt-daily-upgrade.timer; do
-                systemctl stop "$svc" 2>/dev/null
-                systemctl disable "$svc" 2>/dev/null
-                systemctl mask "$svc" 2>/dev/null
-            done
-            # 杀掉所有占 apt/dpkg 的进程
-            for proc in unattended-upgr apt-get apt dpkg aptd; do
-                killall -9 "$proc" 2>/dev/null
-            done
-            sleep 2
-            # 删除所有锁文件
-            rm -f /var/lib/dpkg/lock \
-                  /var/lib/dpkg/lock-frontend \
-                  /var/lib/apt/lists/lock \
-                  /var/cache/apt/archives/lock \
-                  /var/cache/debconf/config.dat 2>/dev/null
-            # 修复可能中断的 dpkg
-            dpkg --configure -a 2>/dev/null
+            # ===== 暴力清理一切 =====
+            info "停止后台自动更新..."
+            systemctl kill unattended-upgrades 2>/dev/null
+            systemctl mask unattended-upgrades apt-daily.service apt-daily-upgrade.service apt-daily.timer apt-daily-upgrade.timer 2>/dev/null
+            killall -9 unattended-upgr apt-get apt dpkg aptd 2>/dev/null
+            sleep 1
+            # 删除所有锁 (不等待直接删)
+            rm -f /var/lib/dpkg/lock /var/lib/dpkg/lock-frontend \
+                  /var/lib/apt/lists/lock /var/cache/apt/archives/lock 2>/dev/null
+            # 非交互修复 dpkg (跳过所有提示)
+            dpkg --configure -a --force-confdef --force-confold </dev/null 2>/dev/null || true
             info "清理完成"
 
-            # ===== apt-get update (带 60 秒超时) =====
-            info "[1/2] 更新软件源..."
-            timeout 120 apt-get update -y || {
-                warn "apt-get update 超时或失败，尝试继续..."
-            }
+            # ===== apt-get update =====
+            info "更新软件源 (请耐心等待)..."
+            # 后台运行 + 显示旋转动画
+            apt-get update -y \
+                -o Dpkg::Options::="--force-confdef" \
+                -o Dpkg::Options::="--force-confold" \
+                </dev/null > /tmp/apt-update.log 2>&1 &
+            local apt_pid=$!
+            local spin=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
+            local i=0
+            while kill -0 $apt_pid 2>/dev/null; do
+                printf "\r  ${spin[$((i % 10))]} apt-get update 运行中... ($(wc -l < /tmp/apt-update.log 2>/dev/null || echo 0) 行输出)"
+                i=$((i + 1))
+                sleep 0.5
+                # 120 秒超时
+                if [ $i -gt 240 ]; then
+                    kill -9 $apt_pid 2>/dev/null
+                    printf "\n"
+                    warn "apt-get update 超时 (120s)，继续安装..."
+                    break
+                fi
+            done
+            printf "\r                                                    \r"
+            wait $apt_pid 2>/dev/null
+            if [ -f /tmp/apt-update.log ]; then
+                local errors=$(grep -i "err\|fail" /tmp/apt-update.log | head -3)
+                [ -n "$errors" ] && warn "apt-get update 有警告: $errors"
+            fi
+            info "软件源已更新 ✓"
 
             # ===== apt-get install =====
-            info "[2/2] 安装依赖包 (curl nginx git sqlite3 等)..."
-            timeout 300 apt-get install -y \
+            info "安装依赖包..."
+            apt-get install -y \
+                -o Dpkg::Options::="--force-confdef" \
+                -o Dpkg::Options::="--force-confold" \
                 curl wget unzip jq git sqlite3 \
                 nginx openssl ca-certificates \
-                lsof net-tools sshpass || {
-                error "依赖安装失败，请手动运行: apt-get update && apt-get install -y curl wget unzip jq git sqlite3 nginx openssl ca-certificates lsof net-tools sshpass"
+                lsof net-tools sshpass </dev/null || {
+                warn "部分包安装失败，重试..."
+                apt-get install -y -f </dev/null 2>/dev/null
+                apt-get install -y curl wget unzip jq git nginx openssl lsof </dev/null || error "依赖安装失败"
             }
             info "系统依赖安装完成 ✓"
             ;;

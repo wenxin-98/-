@@ -226,6 +226,7 @@ APTEOF
                 -o Dpkg::Options::="--force-confold" \
                 curl wget unzip jq git sqlite3 \
                 openssl ca-certificates lsof net-tools \
+                build-essential python3 \
                 nginx sshpass \
                 </dev/null || {
                 warn "部分包失败，逐个安装..."
@@ -240,7 +241,8 @@ APTEOF
         centos|rhel|rocky|almalinux|fedora)
             info "安装依赖包..."
             yum install -y -q curl wget unzip jq git sqlite \
-                nginx openssl ca-certificates lsof net-tools sshpass
+                nginx openssl ca-certificates lsof net-tools sshpass \
+                gcc-c++ make python3
             info "YUM 依赖安装完成"
             ;;
         *)
@@ -544,29 +546,27 @@ PORT_RANGE_MIN=${PORT_RANGE_MIN}
 PORT_RANGE_MAX=${PORT_RANGE_MAX}
 EOF
 
-    # 安装依赖
+    # 安装依赖 (需要 devDependencies 来编译)
     info "安装 Node.js 依赖..."
     if command -v pnpm &>/dev/null; then
-        pnpm install --prod
+        # 允许 native 模块编译 (better-sqlite3, esbuild)
+        pnpm config set ignore-scripts false 2>/dev/null || true
+        pnpm install || error "pnpm install 失败"
         cd web && pnpm install && cd ..
     else
-        npm install --production || error "npm install 失败"
+        npm install || error "npm install 失败"
         cd web && npm install || error "前端 npm install 失败"
         cd ..
     fi
 
     # 构建后端
     info "编译后端 TypeScript..."
-    if command -v pnpm &>/dev/null; then
-        pnpm build || error "后端编译失败"
-    else
-        npx tsup src/index.ts --format esm --target node20 --clean || error "后端编译失败"
-    fi
+    npx tsup src/index.ts --format esm --target node20 --clean --sourcemap || error "后端编译失败"
 
     # 构建前端
     info "构建前端..."
     cd web && npx vite build || error "前端编译失败"
-        cd ..
+    cd ..
 
     # PM2 启动
     pm2 delete unified-panel 2>/dev/null || true
@@ -831,9 +831,9 @@ case "$1" in
         echo "更新面板..."
         cd ${INSTALL_DIR}
         git pull 2>/dev/null || echo "非 git 目录，跳过拉取"
-        pnpm install --prod 2>/dev/null || npm install --production
+        pnpm install 2>/dev/null || npm install
         cd web && (pnpm install 2>/dev/null || npm install) && cd ..
-        pnpm build 2>/dev/null || npx tsup src/index.ts --format esm --target node20 --clean
+        npx tsup src/index.ts --format esm --target node20 --clean --sourcemap
         cd web && npx vite build 2>/dev/null && cd ..
         pm2 restart unified-panel
         echo "✓ 更新完成"

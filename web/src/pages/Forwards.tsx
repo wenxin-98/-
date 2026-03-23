@@ -7,8 +7,9 @@ import toast from 'react-hot-toast';
 // ===== Protocol definitions (mirrors backend protocols.ts) =====
 const GROUPS = [
   { key: 'gost-forward', label: 'GOST 端口转发', items: [
-    { v: 'port-forward-tcp', l: 'TCP 端口转发', d: '直接转发 TCP 流量' },
-    { v: 'port-forward-udp', l: 'UDP 端口转发', d: '直接转发 UDP 流量' },
+    { v: 'port-forward-both', l: 'TCP+UDP 端口转发', d: '同时转发 TCP 和 UDP (推荐)' },
+    { v: 'port-forward-tcp', l: 'TCP 端口转发', d: '仅转发 TCP 流量' },
+    { v: 'port-forward-udp', l: 'UDP 端口转发', d: '仅转发 UDP 流量' },
     { v: 'port-range-tcp', l: 'TCP 端口范围转发', d: '批量端口映射' },
     { v: 'reverse-tcp', l: 'TCP 反向转发', d: '内网穿透' },
     { v: 'reverse-udp', l: 'UDP 反向转发', d: '远程 UDP 转本地' },
@@ -54,7 +55,9 @@ const XRAY_FIELDS: Record<string, Array<{ key: string; label: string; type: stri
     { key: 'network', label: '传输', type: 'select', default: 'tcp', options: [
       { value: 'tcp', label: 'TCP' }, { value: 'ws', label: 'WebSocket' }, { value: 'grpc', label: 'gRPC' },
       { value: 'h2', label: 'HTTP/2' }, { value: 'httpupgrade', label: 'HTTPUpgrade (CDN)' },
-      { value: 'splithttp', label: 'SplitHTTP (xHTTP)' },
+      { value: 'splithttp', label: 'SplitHTTP' },
+      { value: 'xhttp', label: 'XHTTP' },
+      { value: 'xhttp', label: 'XHTTP (Xray 24.12+)' },
     ]},
     { key: 'flow', label: 'Flow', type: 'select', default: 'xtls-rprx-vision', options: [
       { value: 'xtls-rprx-vision', label: 'xtls-rprx-vision' }, { value: '', label: '无' },

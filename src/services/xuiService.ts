@@ -673,6 +673,9 @@ class XuiApiService {
       case 'splithttp':
         base.splithttpSettings = { path, host: '', maxConcurrentUploads: 10 };
         break;
+      case 'xhttp':
+        base.xhttpSettings = { path, host: '', mode: 'auto', maxConcurrentUploads: 10 };
+        break;
       case 'h2':
         base.httpSettings = { path, host: [''] };
         break;

@@ -79,6 +79,10 @@ function generateVmessLink(opts: ShareLinkOpts): string {
     vmessObj.net = 'splithttp';
     vmessObj.path = stream.splithttpSettings?.path || '/';
     vmessObj.host = stream.splithttpSettings?.host || '';
+  } else if (stream.network === 'xhttp') {
+    vmessObj.net = 'xhttp';
+    vmessObj.path = stream.xhttpSettings?.path || '/';
+    vmessObj.host = stream.xhttpSettings?.host || '';
   } else if (stream.network === 'tcp' && stream.tcpSettings?.header?.type === 'http') {
     vmessObj.type = 'http';
     vmessObj.path = (stream.tcpSettings.header.request?.path || ['/'])[0];
@@ -139,6 +143,11 @@ function generateVlessLink(opts: ShareLinkOpts): string {
     const sh = stream.splithttpSettings || {};
     if (sh.path) params.set('path', sh.path);
     if (sh.host) params.set('host', sh.host);
+  } else if (stream.network === 'xhttp') {
+    const xh = stream.xhttpSettings || {};
+    if (xh.path) params.set('path', xh.path);
+    if (xh.host) params.set('host', xh.host);
+    if (xh.mode) params.set('mode', xh.mode);
   } else if (stream.network === 'h2') {
     const h2 = stream.httpSettings || {};
     if (h2.path) params.set('path', h2.path);
@@ -192,6 +201,11 @@ function generateTrojanLink(opts: ShareLinkOpts): string {
     const sh = stream.splithttpSettings || {};
     if (sh.path) params.set('path', sh.path);
     if (sh.host) params.set('host', sh.host);
+  } else if (stream.network === 'xhttp') {
+    const xh = stream.xhttpSettings || {};
+    if (xh.path) params.set('path', xh.path);
+    if (xh.host) params.set('host', xh.host);
+    if (xh.mode) params.set('mode', xh.mode);
   }
 
   const password = client.password;

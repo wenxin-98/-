@@ -63,6 +63,7 @@ export type ForwardType =
   // 端口转发
   | 'port-forward-tcp'
   | 'port-forward-udp'
+  | 'port-forward-both'
   | 'port-range-tcp'
   | 'reverse-tcp'
   | 'reverse-udp'
@@ -313,6 +314,16 @@ class GostApiService {
     if (opts.type === 'port-forward-tcp' || opts.type === 'port-forward-udp') {
       await this.createPortForward({ ...opts, name: serviceName });
       return { serviceName };
+    }
+
+    // TCP+UDP 混合转发 — 同时创建两条
+    if (opts.type === 'port-forward-both') {
+      const tcpName = `${serviceName}-tcp`;
+      const udpName = `${serviceName}-udp`;
+      await this.createPortForward({ ...opts, name: tcpName, type: 'port-forward-tcp' });
+      await this.createPortForward({ ...opts, name: udpName, type: 'port-forward-udp' });
+      logger.info(`创建 TCP+UDP 混合转发: ${serviceName} :${opts.listenPort} → ${opts.targetHost}:${opts.targetPort}`);
+      return { serviceName: `${tcpName},${udpName}` };
     }
 
     // 端口范围转发 — 批量创建多个服务

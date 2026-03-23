@@ -6,6 +6,7 @@ const colorMap: Record<string, { color: string; bg: string }> = {
   // GOST 端口转发
   'port-forward-tcp':  { color: 'var(--accent)', bg: 'var(--accent-dim)' },
   'port-forward-udp':  { color: 'var(--purple)', bg: 'var(--purple-dim)' },
+  'port-forward-both': { color: 'var(--green)', bg: 'rgba(34,197,94,0.12)' },
   'port-range-tcp':    { color: 'var(--accent)', bg: 'var(--accent-dim)' },
   'reverse-tcp':       { color: '#f97316', bg: 'rgba(249,115,22,0.12)' },
   'reverse-udp':       { color: '#f97316', bg: 'rgba(249,115,22,0.12)' },
@@ -48,7 +49,7 @@ const colorMap: Record<string, { color: string; bg: string }> = {
 };
 
 const typeLabels: Record<string, string> = {
-  'port-forward-tcp': 'TCP转发', 'port-forward-udp': 'UDP转发',
+  'port-forward-tcp': 'TCP转发', 'port-forward-udp': 'UDP转发', 'port-forward-both': 'TCP+UDP转发',
   'port-range-tcp': '端口范围', 'reverse-tcp': '反向TCP', 'reverse-udp': '反向UDP',
   'tunnel-tls': 'TLS隧道', 'tunnel-wss': 'WSS隧道',
   'tunnel-mwss': 'mWSS隧道', 'tunnel-mtls': 'mTLS隧道',

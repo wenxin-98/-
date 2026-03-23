@@ -31,7 +31,7 @@ export function SettingsPage() {
   const [loading, setLoading] = useState(true);
 
   // Password form
-  const [pwForm, setPwForm] = useState({ old: '', new: '', confirm: '' });
+  const [pwForm, setPwForm] = useState({ old: '', new: '', confirm: '', username: '' });
 
   // Cert form
   const [certForm, setCertForm] = useState({
@@ -69,9 +69,10 @@ export function SettingsPage() {
   }, []);
 
   const handleChangePassword = async () => {
-    if (!pwForm.old || !pwForm.new) return toast.error('请填写密码');
-    if (pwForm.new !== pwForm.confirm) return toast.error('两次密码不一致');
-    if (pwForm.new.length < 6) return toast.error('密码至少 6 位');
+    if (!pwForm.old) return toast.error('请填写旧密码');
+    if (!pwForm.new && !pwForm.username) return toast.error('请填写新密码或新用户名');
+    if (pwForm.new && pwForm.new !== pwForm.confirm) return toast.error('两次密码不一致');
+    if (pwForm.new && pwForm.new.length < 6) return toast.error('密码至少 6 位');
     try {
       const res = await fetch('/api/v1/settings/change-admin-password', {
         method: 'POST',
@@ -79,10 +80,14 @@ export function SettingsPage() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${localStorage.getItem('token')}`,
         },
-        body: JSON.stringify({ oldPassword: pwForm.old, newPassword: pwForm.new }),
+        body: JSON.stringify({
+          oldPassword: pwForm.old,
+          newPassword: pwForm.new || undefined,
+          newUsername: pwForm.username || undefined,
+        }),
       }).then(r => r.json());
       if (res.ok) {
-        toast.success('密码已修改，请重新登录');
+        toast.success('修改成功，请重新登录');
         setTimeout(() => logout(), 1500);
       } else {
         toast.error(res.msg || '修改失败');
@@ -235,18 +240,24 @@ export function SettingsPage() {
 
           {/* 修改密码 */}
           <div className="card">
-            <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>修改密码</div>
+            <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>修改账号</div>
             <div style={{ fontSize: 13, color: 'var(--text-dim)', marginBottom: 16 }}>
               当前用户: {user?.username}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div>
-                <label className="label">旧密码</label>
+                <label className="label">新用户名 (不改留空)</label>
+                <input className="input" type="text" placeholder={user?.username}
+                  value={pwForm.username}
+                  onChange={e => setPwForm({ ...pwForm, username: e.target.value })} />
+              </div>
+              <div>
+                <label className="label">旧密码 (必填验证身份)</label>
                 <input className="input" type="password" value={pwForm.old}
                   onChange={e => setPwForm({ ...pwForm, old: e.target.value })} />
               </div>
               <div>
-                <label className="label">新密码</label>
+                <label className="label">新密码 (不改留空)</label>
                 <input className="input" type="password" value={pwForm.new}
                   onChange={e => setPwForm({ ...pwForm, new: e.target.value })} />
               </div>
@@ -255,7 +266,7 @@ export function SettingsPage() {
                 <input className="input" type="password" value={pwForm.confirm}
                   onChange={e => setPwForm({ ...pwForm, confirm: e.target.value })} />
               </div>
-              <button className="btn btn-primary" onClick={handleChangePassword}>修改密码</button>
+              <button className="btn btn-primary" onClick={handleChangePassword}>保存修改</button>
             </div>
           </div>
         </div>

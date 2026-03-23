@@ -53,9 +53,9 @@ router.get('/profile', requireAuth, (req: Request, res: Response) => {
 /** POST /api/v1/auth/change-password */
 router.post('/change-password', requireAuth, async (req: Request, res: Response) => {
   try {
-    const { oldPassword, newPassword } = req.body;
+    const { oldPassword, newPassword, newUsername } = req.body;
     
-    if (!oldPassword || !newPassword) {
+    if (!oldPassword || (!newPassword && !newUsername)) {
       return res.status(400).json({ ok: false, msg: '参数不完整' });
     }
 
@@ -69,10 +69,20 @@ router.post('/change-password', requireAuth, async (req: Request, res: Response)
       return res.status(400).json({ ok: false, msg: '旧密码错误' });
     }
 
-    const hash = await bcrypt.hash(newPassword, 10);
-    db.update(users).set({ password: hash }).where(eq(users.id, user.id)).run();
+    const updates: any = {};
+    if (newPassword) updates.password = await bcrypt.hash(newPassword, 10);
+    if (newUsername && newUsername !== user.username) {
+      // 检查用户名是否已存在
+      const existing = db.select().from(users).where(eq(users.username, newUsername)).get();
+      if (existing) return res.status(400).json({ ok: false, msg: '用户名已被占用' });
+      updates.username = newUsername;
+    }
 
-    res.json({ ok: true, msg: '密码修改成功' });
+    db.update(users).set(updates).where(eq(users.id, user.id)).run();
+
+    db.insert(opLogs).values({ action: 'change_password', target: newUsername || user.username, userId: req.user!.userId, ip: req.ip }).run();
+
+    res.json({ ok: true, msg: '修改成功' });
   } catch (err: any) {
     res.status(500).json({ ok: false, msg: err.message });
   }

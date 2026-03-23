@@ -131,14 +131,17 @@ router.post('/ip-blacklist', requireAdmin, async (req: Request, res: Response) =
 // ===== 面板设置 =====
 // ============================
 
-/** POST /api/v1/settings/change-admin-password — 修改管理员密码 */
+/** POST /api/v1/settings/change-admin-password — 修改管理员账号密码 */
 router.post('/change-admin-password', requireAdmin, async (req: Request, res: Response) => {
   try {
-    const { oldPassword, newPassword } = req.body;
-    if (!oldPassword || !newPassword) {
-      return res.status(400).json({ ok: false, msg: '参数不完整' });
+    const { oldPassword, newPassword, newUsername } = req.body;
+    if (!oldPassword) {
+      return res.status(400).json({ ok: false, msg: '请输入旧密码' });
     }
-    if (newPassword.length < 6) {
+    if (!newPassword && !newUsername) {
+      return res.status(400).json({ ok: false, msg: '请输入新密码或新用户名' });
+    }
+    if (newPassword && newPassword.length < 6) {
       return res.status(400).json({ ok: false, msg: '密码至少 6 位' });
     }
 
@@ -148,17 +151,26 @@ router.post('/change-admin-password', requireAdmin, async (req: Request, res: Re
     const valid = await bcrypt.compare(oldPassword, user.password);
     if (!valid) return res.status(400).json({ ok: false, msg: '旧密码错误' });
 
-    const hash = await bcrypt.hash(newPassword, 10);
-    db.update(users).set({ password: hash }).where(eq(users.id, user.id)).run();
+    const updates: any = {};
+    if (newPassword) {
+      updates.password = await bcrypt.hash(newPassword, 10);
+    }
+    if (newUsername && newUsername.trim() && newUsername !== user.username) {
+      const existing = db.select().from(users).where(eq(users.username, newUsername.trim())).get();
+      if (existing) return res.status(400).json({ ok: false, msg: '用户名已被占用' });
+      updates.username = newUsername.trim();
+    }
+
+    db.update(users).set(updates).where(eq(users.id, user.id)).run();
 
     db.insert(opLogs).values({
-      action: 'change_password',
-      target: user.username,
+      action: 'change_credentials',
+      target: `${user.username} → ${updates.username || user.username}`,
       userId: req.user!.userId,
       ip: req.ip,
     }).run();
 
-    res.json({ ok: true, msg: '密码已修改' });
+    res.json({ ok: true, msg: '修改成功' });
   } catch (err: any) {
     res.status(500).json({ ok: false, msg: err.message });
   }

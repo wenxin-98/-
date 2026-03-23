@@ -157,11 +157,27 @@ install_deps() {
     case "$OS" in
         ubuntu|debian)
             export DEBIAN_FRONTEND=noninteractive
-            info "更新软件源 (可能需要 1-2 分钟)..."
-            apt-get update -y -qq 2>&1 | tail -1
+
+            # Ubuntu 24.04 后台 unattended-upgrades 会占 apt 锁
+            if pgrep -x unattended-upgr >/dev/null 2>&1 || fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; then
+                warn "检测到 apt 锁被占用，正在等待释放..."
+                systemctl stop unattended-upgrades 2>/dev/null || true
+                systemctl disable unattended-upgrades 2>/dev/null || true
+                killall -9 unattended-upgr 2>/dev/null || true
+                killall -9 apt-get 2>/dev/null || true
+                killall -9 dpkg 2>/dev/null || true
+                sleep 2
+                # 修复可能的中断状态
+                dpkg --configure -a 2>/dev/null || true
+                rm -f /var/lib/dpkg/lock-frontend /var/lib/apt/lists/lock 2>/dev/null || true
+                info "apt 锁已释放"
+            fi
+
+            info "更新软件源..."
+            apt-get update -y -qq 2>&1 | tail -3
             info "安装依赖包..."
-            apt-get install -y -qq curl wget unzip jq git sqlite3 \
-                nginx openssl ca-certificates lsof net-tools sshpass 2>&1 | grep -E "^Setting|^Processing|新安装|升级" | tail -5
+            apt-get install -y curl wget unzip jq git sqlite3 \
+                nginx openssl ca-certificates lsof net-tools sshpass 2>&1 | tail -5
             info "APT 依赖安装完成"
             ;;
         centos|rhel|rocky|almalinux|fedora)

@@ -187,23 +187,23 @@ install_deps() {
             [ $wait_count -gt 0 ] && echo "" && info "apt 锁已释放"
 
             info "[1/3] apt-get update ..."
-            apt-get update -y 2>&1 | tail -3
+            apt-get update -y -o DPkg::Lock::Timeout=30 || warn "apt-get update 有警告，继续安装..."
             info "[2/3] 安装依赖包..."
-            apt-get install -y curl wget unzip jq git sqlite3 \
-                nginx openssl ca-certificates lsof net-tools sshpass 2>&1 | tail -5
+            apt-get install -y -o DPkg::Lock::Timeout=60 curl wget unzip jq git sqlite3 \
+                nginx openssl ca-certificates lsof net-tools sshpass || error "apt-get install 失败"
             info "[3/3] APT 依赖安装完成 ✓"
             ;;
         centos|rhel|rocky|almalinux|fedora)
             info "安装依赖包..."
             yum install -y -q curl wget unzip jq git sqlite \
-                nginx openssl ca-certificates lsof net-tools sshpass 2>&1 | tail -3
+                nginx openssl ca-certificates lsof net-tools sshpass
             info "YUM 依赖安装完成"
             ;;
         *)
             warn "未知系统 $OS，尝试 apt-get..."
-            apt-get update -y -qq 2>&1 | tail -1
+            apt-get update -y -qq
             apt-get install -y -qq \
-                curl wget unzip jq git sqlite3 nginx openssl sshpass 2>&1 | tail -3
+                curl wget unzip jq git sqlite3 nginx openssl sshpass
             ;;
     esac
 }
@@ -272,7 +272,7 @@ install_nodejs() {
     # 安装 pnpm
     setup_npm_registry
     info "安装 pnpm..."
-    npm install -g pnpm 2>&1 | tail -1 || true
+    npm install -g pnpm || true
 
     info "Node.js $(node -v) 安装完成"
 }
@@ -293,8 +293,8 @@ install_pm2() {
 
     step "安装 PM2"
     info "安装 PM2..."
-    npm install -g pm2 2>&1 | tail -1
-    pm2 startup 2>&1 | tail -1 || true
+    npm install -g pm2
+    pm2 startup || true
     info "PM2 $(pm2 -v) 安装完成"
 }
 
@@ -435,7 +435,7 @@ install_3xui() {
     else
         # 最后回退: 直连 (可能很慢)
         warn "镜像下载 3X-UI 脚本失败，尝试直连..."
-        echo "y" | bash <(curl -Ls https://raw.githubusercontent.com/mhsanaei/3x-ui/master/install.sh) 2>&1 | tail -5
+        echo "y" | bash <(curl -Ls https://raw.githubusercontent.com/mhsanaei/3x-ui/master/install.sh)
     fi
 
     sleep 3
@@ -504,25 +504,25 @@ EOF
     # 安装依赖
     info "安装 Node.js 依赖..."
     if command -v pnpm &>/dev/null; then
-        pnpm install --prod 2>&1 | tail -3
-        cd web && pnpm install 2>&1 | tail -3 && cd ..
+        pnpm install --prod
+        cd web && pnpm install && cd ..
     else
-        npm install --production 2>&1 | tail -5 || error "npm install 失败"
-        cd web && npm install 2>&1 | tail -5 || error "前端 npm install 失败"
+        npm install --production || error "npm install 失败"
+        cd web && npm install || error "前端 npm install 失败"
         cd ..
     fi
 
     # 构建后端
     info "编译后端 TypeScript..."
     if command -v pnpm &>/dev/null; then
-        pnpm build 2>&1 | tail -5 || error "后端编译失败"
+        pnpm build || error "后端编译失败"
     else
-        npx tsup src/index.ts --format esm --target node20 --clean 2>&1 | tail -5 || error "后端编译失败"
+        npx tsup src/index.ts --format esm --target node20 --clean || error "后端编译失败"
     fi
 
     # 构建前端
     info "构建前端..."
-    cd web && npx vite build 2>&1 | tail -5 || error "前端编译失败"
+    cd web && npx vite build || error "前端编译失败"
         cd ..
 
     # PM2 启动

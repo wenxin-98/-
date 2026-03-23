@@ -84,8 +84,8 @@ router.delete('/:id', requireAuth, async (req: Request, res: Response) => {
   }
 });
 
-/** GET /api/v1/nodes/:id/install-script — 获取节点安装脚本 */
-router.get('/:id/install-script', requireAuth, async (req: Request, res: Response) => {
+/** GET /api/v1/nodes/:id/install-script — 获取节点安装脚本 (无需认证, 远程节点 curl 用) */
+router.get('/:id/install-script', async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id as string);
     const node = db.select().from(nodes).where(eq(nodes.id, id)).get();

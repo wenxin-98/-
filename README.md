@@ -6,7 +6,7 @@
 
 一站式管理端口转发、加密隧道、代理协议，支持 27+ 种协议、动态 BBR 调参、多节点双引擎部署
 
-[![CI](https://github.com/YOUR_USER/unified-panel/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_USER/unified-panel/actions)
+[![CI](https://github.com/wenxin-98/-/actions/workflows/ci.yml/badge.svg)](https://github.com/wenxin-98/-/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/Node.js-20+-green.svg)](https://nodejs.org)
 [![Docker](https://img.shields.io/badge/Docker-ready-blue.svg)](Dockerfile)
@@ -74,7 +74,7 @@
 ### 方式一: 一键脚本 (推荐)
 
 ```bash
-bash <(curl -sL https://raw.githubusercontent.com/YOUR_USER/unified-panel/main/scripts/install.sh)
+bash <(curl -sL https://raw.githubusercontent.com/wenxin-98/-/main/scripts/install.sh)
 ```
 
 支持选择安装组件:
@@ -86,7 +86,7 @@ bash <(curl -sL https://raw.githubusercontent.com/YOUR_USER/unified-panel/main/s
 ### 方式二: Docker Compose
 
 ```bash
-git clone https://github.com/YOUR_USER/unified-panel.git
+git clone https://github.com/wenxin-98/-.git
 cd unified-panel
 docker compose up -d
 ```
@@ -94,7 +94,7 @@ docker compose up -d
 ### 方式三: 手动安装
 
 ```bash
-git clone https://github.com/YOUR_USER/unified-panel.git
+git clone https://github.com/wenxin-98/-.git
 cd unified-panel
 
 # 安装依赖
@@ -128,7 +128,7 @@ docker run -d \
   -v panel-data:/app/data \
   -e GOST_API=http://YOUR_GOST_IP:18080 \
   -e XUI_API=http://YOUR_XUI_IP:2053 \
-  ghcr.io/YOUR_USER/unified-panel:latest
+  ghcr.io/wenxin-98/-:latest
 ```
 
 完整栈 (面板 + GOST + 3X-UI + Nginx):

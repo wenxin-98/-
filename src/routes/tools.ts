@@ -235,7 +235,7 @@ router.post('/keygen/shortid', requireAuth, async (req: Request, res: Response) 
 // ============================
 
 const CURRENT_VERSION = '1.9.0';
-const GITHUB_REPO = 'YOUR_USER/unified-panel'; // 替换为实际仓库
+const GITHUB_REPO = 'wenxin-98/-'; // 替换为实际仓库
 
 /** GET /api/v1/tools/version — 当前版本信息 */
 router.get('/version', requireAuth, async (_req: Request, res: Response) => {

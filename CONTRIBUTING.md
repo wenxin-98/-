@@ -6,7 +6,7 @@
 
 ```bash
 # 克隆仓库
-git clone https://github.com/YOUR_USER/unified-panel.git
+git clone https://github.com/wenxin-98/-.git
 cd unified-panel
 
 # 安装依赖

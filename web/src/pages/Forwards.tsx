@@ -56,7 +56,6 @@ const XRAY_FIELDS: Record<string, Array<{ key: string; label: string; type: stri
       { value: 'tcp', label: 'TCP' }, { value: 'ws', label: 'WebSocket' }, { value: 'grpc', label: 'gRPC' },
       { value: 'h2', label: 'HTTP/2' }, { value: 'httpupgrade', label: 'HTTPUpgrade (CDN)' },
       { value: 'splithttp', label: 'SplitHTTP' },
-      { value: 'xhttp', label: 'XHTTP' },
       { value: 'xhttp', label: 'XHTTP (Xray 24.12+)' },
     ]},
     { key: 'flow', label: 'Flow', type: 'select', default: 'xtls-rprx-vision', options: [
@@ -82,6 +81,7 @@ const XRAY_FIELDS: Record<string, Array<{ key: string; label: string; type: stri
       { value: 'ws', label: 'WebSocket (推荐)' }, { value: 'tcp', label: 'TCP' }, { value: 'grpc', label: 'gRPC' },
       { value: 'h2', label: 'HTTP/2' }, { value: 'httpupgrade', label: 'HTTPUpgrade (CDN)' },
       { value: 'splithttp', label: 'SplitHTTP' },
+      { value: 'xhttp', label: 'XHTTP (Xray 24.12+)' },
     ]},
     { key: 'security', label: '安全层', type: 'select', default: 'none', options: [
       { value: 'tls', label: 'TLS' }, { value: 'none', label: '无 (CDN)' },
@@ -99,6 +99,7 @@ const XRAY_FIELDS: Record<string, Array<{ key: string; label: string; type: stri
     { key: 'network', label: '传输', type: 'select', default: 'tcp', options: [
       { value: 'tcp', label: 'TCP' }, { value: 'ws', label: 'WebSocket' }, { value: 'grpc', label: 'gRPC' },
       { value: 'h2', label: 'HTTP/2' }, { value: 'httpupgrade', label: 'HTTPUpgrade' },
+      { value: 'splithttp', label: 'SplitHTTP' }, { value: 'xhttp', label: 'XHTTP' },
     ]},
     { key: 'security', label: '安全层', type: 'select', default: 'tls', options: [
       { value: 'tls', label: 'TLS' }, { value: 'reality', label: 'Reality' }, { value: 'none', label: '无' },
